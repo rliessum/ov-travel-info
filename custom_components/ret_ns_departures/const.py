@@ -31,7 +31,7 @@ DEFAULT_MAX_DEPARTURES: Final = 5
 MIN_SCAN_INTERVAL: Final = timedelta(seconds=15)
 
 # API endpoints
-OVAPI_BASE_URL: Final = "http://v0.ovapi.nl"
+RET_BASE_URL: Final = "https://www.ret.nl/home/reizen/halte"
 NS_API_BASE_URL: Final = "https://gateway.apiportal.ns.nl/reisinformatie-api/api/v2"
 NS_DISRUPTIONS_BASE_URL: Final = "https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3"
 

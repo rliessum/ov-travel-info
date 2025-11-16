@@ -4,23 +4,26 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 import logging
+import re
+import json
 from typing import Any
 
 from aiohttp import ClientError, ClientSession
+from bs4 import BeautifulSoup
 import pytz
 
-from .const import OPERATOR_RET, OVAPI_BASE_URL, TIMEZONE
+from .const import OPERATOR_RET, RET_BASE_URL, TIMEZONE
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class RETAPIClient:
-    """Client for interacting with OVapi for RET departures."""
+    """Client for interacting with RET website for departures."""
 
     def __init__(self, session: ClientSession) -> None:
         """Initialize the RET API client."""
         self._session = session
-        self._base_url = OVAPI_BASE_URL
+        self._base_url = RET_BASE_URL
         self._tz = pytz.timezone(TIMEZONE)
 
     async def async_get_departures(
@@ -30,21 +33,19 @@ class RETAPIClient:
         line_filter: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Fetch departures for a RET stop.
+        Fetch departures for a RET stop by scraping the website.
 
         Args:
-            stop_id: The stop ID (e.g., "NL:Q:31000539" or just the numeric part)
+            stop_id: The stop name (e.g., "schiekade", "beurs")
             max_results: Maximum number of departures to return
             line_filter: Optional list of line numbers to filter by
 
         Returns:
             List of departure dictionaries
         """
-        # Ensure stop_id is in the correct format for OVapi
-        if not stop_id.startswith("NL:Q:"):
-            stop_id = f"NL:Q:{stop_id}"
-
-        url = f"{self._base_url}/stopareacode/{stop_id}"
+        # Convert stop_id to lowercase URL format
+        stop_name = stop_id.lower().replace(" ", "-")
+        url = f"{self._base_url}/{stop_name}.html"
         
         _LOGGER.debug("Fetching RET departures from %s", url)
 
@@ -52,11 +53,13 @@ class RETAPIClient:
             async with asyncio.timeout(10):
                 async with self._session.get(url) as response:
                     response.raise_for_status()
-                    data = await response.json()
+                    html_content = await response.text()
                     
-            _LOGGER.debug("Received RET data: %s", str(data)[:200])
+            _LOGGER.debug("Received RET HTML page, parsing departures")
             
-            return self._parse_departures(data, max_results, line_filter)
+            return await self._parse_departures(
+                html_content, max_results, line_filter
+            )
 
         except asyncio.TimeoutError:
             _LOGGER.warning("Timeout fetching RET departures for stop %s", stop_id)
@@ -68,80 +71,123 @@ class RETAPIClient:
             _LOGGER.error("Unexpected error fetching RET departures: %s", err)
             raise
 
-    def _parse_departures(
+    async def _parse_departures(
         self,
-        data: dict[str, Any],
+        html_content: str,
         max_results: int,
         line_filter: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Parse OVapi response into departure list."""
+        """Parse HTML content and extract departure information."""
         departures = []
         
-        # OVapi structure: {stop_area_code: {stop_code: {stop_data}}}
-        for stop_area_code, stop_area_data in data.items():
-            if not isinstance(stop_area_data, dict):
-                continue
+        try:
+            # Parse HTML with BeautifulSoup
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Find all departure rows
+            departure_rows = soup.find_all('a', class_='modal__toggle--generated')
+            
+            for row in departure_rows:
+                # Extract line name (e.g., "Tram 8")
+                line_info = row.find('span', class_='favorite__info')
+                if not line_info:
+                    continue
+                    
+                line_text = line_info.get_text(strip=True)
                 
-            for stop_code, stop_data in stop_area_data.items():
-                if not isinstance(stop_data, dict):
+                # Extract just the line number/letter from "Tram 8" or "Bus 33"
+                line_match = re.search(r'(\d+[A-Z]?|[A-Z])$', line_text)
+                line_number = line_match.group(1) if line_match else line_text
+                
+                # Apply line filter if specified
+                if line_filter and line_number not in line_filter:
                     continue
                 
-                passes = stop_data.get("Passes", {})
+                # Extract direction
+                direction_div = row.find('div', class_='favorite__stop')
+                destination = "Unknown"
+                if direction_div:
+                    direction_spans = direction_div.find_all('span', class_='favorite__info')
+                    if direction_spans:
+                        destination = direction_spans[-1].get_text(strip=True)
                 
-                for pass_id, pass_data in passes.items():
-                    if not isinstance(pass_data, dict):
-                        continue
+                # Extract departure time
+                time_spans = row.find_all('span', class_='favorite__time__amount')
+                if not time_spans:
+                    continue
                     
-                    # Extract departure information
-                    line_public_number = pass_data.get("LinePublicNumber", "")
+                time_str = time_spans[0].get_text(strip=True)
+                
+                # Extract minutes until departure
+                minutes_str = None
+                minutes_span = row.find('span', class_='favorite__time__amount minutes')
+                if minutes_span:
+                    minutes_str = minutes_span.get_text(strip=True)
+                
+                # Parse departure time
+                try:
+                    # Current date with departure time
+                    now = datetime.now(self._tz)
+                    hour, minute = map(int, time_str.split(':'))
                     
-                    # Apply line filter if specified
-                    if line_filter and line_public_number not in line_filter:
-                        continue
+                    scheduled_dt = now.replace(
+                        hour=hour, minute=minute, second=0, microsecond=0
+                    )
                     
-                    destination = pass_data.get("DestinationName50", "Unknown")
+                    # If the time is in the past, assume it's for tomorrow
+                    if scheduled_dt < now:
+                        from datetime import timedelta
+                        scheduled_dt += timedelta(days=1)
                     
-                    # Get timing information
-                    target_departure_time = pass_data.get("TargetDepartureTime")
-                    expected_departure_time = pass_data.get("ExpectedDepartureTime")
+                    # Calculate actual time based on minutes
+                    actual_dt = scheduled_dt
+                    delay_minutes = 0
                     
-                    if not target_departure_time:
-                        continue
-                    
-                    # Parse times (OVapi uses ISO format strings)
-                    try:
-                        scheduled_dt = datetime.fromisoformat(
-                            target_departure_time.replace("Z", "+00:00")
-                        )
-                        scheduled_dt = scheduled_dt.astimezone(self._tz)
-                        
-                        if expected_departure_time:
-                            actual_dt = datetime.fromisoformat(
-                                expected_departure_time.replace("Z", "+00:00")
+                    # If we have relative minutes, use that for actual time
+                    if minutes_str and minutes_str.lower() != 'nu':
+                        try:
+                            minutes_until = int(minutes_str)
+                            from datetime import timedelta
+                            actual_dt = now + timedelta(minutes=minutes_until)
+                            # Calculate delay
+                            expected_scheduled = actual_dt.replace(
+                                hour=hour, minute=minute, second=0, microsecond=0
                             )
-                            actual_dt = actual_dt.astimezone(self._tz)
-                            delay_minutes = int((actual_dt - scheduled_dt).total_seconds() / 60)
-                        else:
-                            actual_dt = scheduled_dt
-                            delay_minutes = 0
-                            
-                    except (ValueError, AttributeError) as err:
-                        _LOGGER.debug("Error parsing time: %s", err)
-                        continue
+                            if expected_scheduled < actual_dt:
+                                delay_minutes = int(
+                                    (actual_dt - expected_scheduled).total_seconds() / 60
+                                )
+                        except ValueError:
+                            pass
                     
-                    departure = {
-                        "line": line_public_number,
-                        "operator": OPERATOR_RET,
-                        "destination": destination,
-                        "platform": pass_data.get("TargetArrivalPlatform", ""),
-                        "delay": delay_minutes,
-                        "scheduled_time": scheduled_dt,
-                        "actual_time": actual_dt,
-                        "transport_type": pass_data.get("TransportType", ""),
-                        "trip_number": pass_data.get("TripStopStatus", ""),
-                    }
-                    
-                    departures.append(departure)
+                except (ValueError, AttributeError) as err:
+                    _LOGGER.debug("Error parsing time '%s': %s", time_str, err)
+                    continue
+                
+                # Extract transport type from line text
+                transport_type = "tram"
+                if "Bus" in line_text:
+                    transport_type = "bus"
+                elif "Metro" in line_text:
+                    transport_type = "metro"
+                
+                departure = {
+                    "line": line_number,
+                    "operator": OPERATOR_RET,
+                    "destination": destination,
+                    "platform": "",
+                    "delay": delay_minutes,
+                    "scheduled_time": scheduled_dt,
+                    "actual_time": actual_dt,
+                    "transport_type": transport_type,
+                    "trip_number": "",
+                }
+                
+                departures.append(departure)
+        
+        except Exception as err:
+            _LOGGER.error("Error parsing RET HTML: %s", err)
+            raise
         
         # Sort by actual departure time
         departures.sort(key=lambda x: x["actual_time"])
@@ -151,23 +197,26 @@ class RETAPIClient:
         future_departures = [d for d in departures if d["actual_time"] > now]
         
         return future_departures[:max_results]
+        future_departures = [d for d in departures if d["actual_time"] > now]
+        
+        return future_departures[:max_results]
 
     async def async_validate_stop(self, stop_id: str) -> bool:
         """
         Validate that a stop ID exists and has data.
 
         Args:
-            stop_id: The stop ID to validate
+            stop_id: The stop name to validate (e.g., "schiekade")
 
         Returns:
             True if valid, False otherwise
         """
         try:
-            departures = await self.async_get_departures(stop_id, max_results=1)
-            # Even if no departures right now, if we get a response, the stop is valid
+            await self.async_get_departures(stop_id, max_results=1)
+            # If we get a response without error, the stop is valid
             return True
         except ClientError:
             return False
-        except Exception:
+        except Exception:  # noqa: BLE001
             # Timeout or other errors - assume stop might be valid
             return True
