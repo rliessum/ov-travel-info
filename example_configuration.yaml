@@ -1,0 +1,72 @@
+# Example Home Assistant configuration for RET & NS Departures
+#
+# This file shows examples of how the sensors can be used in your
+# configuration.yaml file (though the integration itself is configured
+# via the UI, not YAML).
+
+# Example template sensor to create a human-readable departure string
+template:
+  - sensor:
+      - name: "Next Metro Departure Text"
+        state: >
+          {% set entity = 'sensor.ret_beurs_metro_next_departure' %}
+          {% if states(entity) not in ['unknown', 'unavailable', 'Cancelled'] %}
+            Line {{ state_attr(entity, 'line') }} to {{ state_attr(entity, 'destination') }}
+            in {{ states('sensor.ret_beurs_metro_time_to_next_departure') }} minutes
+            {% if state_attr(entity, 'delay') > 0 %}
+              (+{{ state_attr(entity, 'delay') }} min delay)
+            {% endif %}
+          {% else %}
+            No upcoming departures
+          {% endif %}
+
+# Example automation: Notify when train is leaving soon
+automation:
+  - alias: "Notify - Train Leaving Soon"
+    description: "Send notification when the next train to Amsterdam is leaving in 5 minutes"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.ns_rotterdam_centraal_time_to_next_departure
+        below: 5
+    condition:
+      - condition: template
+        value_template: >
+          {{ state_attr('sensor.ns_rotterdam_centraal_next_departure', 'destination') == 'Amsterdam Centraal' }}
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "🚂 Train Departure Alert"
+          message: >
+            Your train to Amsterdam leaves in 
+            {{ states('sensor.ns_rotterdam_centraal_time_to_next_departure') }} minutes 
+            from platform {{ state_attr('sensor.ns_rotterdam_centraal_next_departure', 'platform') }}!
+          data:
+            ttl: 0
+            priority: high
+
+  - alias: "Notify - Metro Has Delay"
+    description: "Notify if the next metro has more than 3 minutes delay"
+    trigger:
+      - platform: state
+        entity_id: sensor.ret_beurs_metro_next_departure
+    condition:
+      - condition: template
+        value_template: "{{ state_attr('sensor.ret_beurs_metro_next_departure', 'delay') > 3 }}"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          message: >
+            Metro line {{ state_attr('sensor.ret_beurs_metro_next_departure', 'line') }} 
+            has a {{ state_attr('sensor.ret_beurs_metro_next_departure', 'delay') }} minute delay
+
+# Example script: Announce next departure via TTS
+script:
+  announce_next_departure:
+    alias: "Announce Next Departure"
+    sequence:
+      - service: tts.google_translate_say
+        data:
+          entity_id: media_player.living_room_speaker
+          message: >
+            The next metro to {{ state_attr('sensor.ret_beurs_metro_next_departure', 'destination') }}
+            leaves in {{ states('sensor.ret_beurs_metro_time_to_next_departure') }} minutes.

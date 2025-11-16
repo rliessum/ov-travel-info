@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose Transport Operator",
+        "description": "Select the public transport operator you want to monitor.",
+        "data": {
+          "operator": "Operator"
+        }
+      },
+      "ret": {
+        "title": "Configure RET Stop",
+        "description": "Configure a RET (Rotterdam) metro, tram, or bus stop.\n\nStop ID example: {stop_id_example}\nLine filter example (optional): {line_filter_example}",
+        "data": {
+          "stop_id": "Stop ID",
+          "stop_name": "Stop Name",
+          "line_filter": "Line Filter (comma-separated, optional)"
+        }
+      },
+      "ns": {
+        "title": "Configure NS Station",
+        "description": "Configure an NS (Nederlandse Spoorwegen) railway station.\n\nStation code example: {station_code_example}\nAPI Key: {api_key_info}",
+        "data": {
+          "ns_api_key": "NS API Key",
+          "station_code": "Station Code",
+          "station_name": "Station Name"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the API. Please check your internet connection and try again.",
+      "invalid_stop": "Invalid stop ID. Please verify the stop ID and try again.",
+      "invalid_station": "Invalid station code or API key. Please verify and try again.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This stop/station is already configured.",
+      "unknown_operator": "Unknown operator selected."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Options",
+        "description": "Configure update interval and departure display options.",
+        "data": {
+          "max_departures": "Maximum number of departures to show",
+          "line_filter": "Line Filter (comma-separated, optional)",
+          "monitor_disruptions": "Monitor disruptions and maintenance (NS only)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "operator": {
+      "options": {
+        "ret": "RET (Rotterdam Metro/Tram/Bus)",
+        "ns": "NS (Dutch Railways)"
+      }
+    }
+  }
+}

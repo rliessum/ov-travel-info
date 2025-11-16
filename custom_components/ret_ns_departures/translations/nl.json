@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Kies Vervoerder",
+        "description": "Selecteer de openbaar vervoer exploitant die u wilt volgen.",
+        "data": {
+          "operator": "Vervoerder"
+        }
+      },
+      "ret": {
+        "title": "RET Halte Configureren",
+        "description": "Configureer een RET (Rotterdam) metro-, tram- of bushalte.\n\nHalte ID voorbeeld: {stop_id_example}\nLijn filter voorbeeld (optioneel): {line_filter_example}",
+        "data": {
+          "stop_id": "Halte ID",
+          "stop_name": "Haltenaam",
+          "line_filter": "Lijn Filter (kommagescheiden, optioneel)"
+        }
+      },
+      "ns": {
+        "title": "NS Station Configureren",
+        "description": "Configureer een NS (Nederlandse Spoorwegen) station.\n\nStation code voorbeeld: {station_code_example}\nAPI Key: {api_key_info}",
+        "data": {
+          "ns_api_key": "NS API Key",
+          "station_code": "Stationscode",
+          "station_name": "Stationnaam"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met de API. Controleer uw internetverbinding en probeer het opnieuw.",
+      "invalid_stop": "Ongeldige halte ID. Controleer de halte ID en probeer het opnieuw.",
+      "invalid_station": "Ongeldige stationscode of API key. Controleer en probeer het opnieuw.",
+      "unknown": "Er is een onverwachte fout opgetreden."
+    },
+    "abort": {
+      "already_configured": "Deze halte/station is al geconfigureerd.",
+      "unknown_operator": "Onbekende vervoerder geselecteerd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opties Configureren",
+        "description": "Configureer update interval en vertrek weergave opties.",
+        "data": {
+          "max_departures": "Maximum aantal vertrektijden om te tonen",
+          "line_filter": "Lijn Filter (kommagescheiden, optioneel)",
+          "monitor_disruptions": "Monitor storingen en onderhoud (alleen NS)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "operator": {
+      "options": {
+        "ret": "RET (Rotterdam Metro/Tram/Bus)",
+        "ns": "NS (Nederlandse Spoorwegen)"
+      }
+    }
+  }
+}

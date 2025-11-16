@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose Transport Operator",
+        "description": "Select the public transport operator you want to monitor.",
+        "data": {
+          "operator": "Operator"
+        },
+        "data_description": {
+          "operator": "Select either RET for Rotterdam public transport or NS for Dutch Railways"
+        }
+      },
+      "ret": {
+        "title": "Configure RET Stop",
+        "description": "Configure a RET (Rotterdam) metro, tram, or bus stop.\n\nStop ID example: {stop_id_example}\nLine filter example (optional): {line_filter_example}",
+        "data": {
+          "stop_id": "Stop ID",
+          "stop_name": "Stop Name",
+          "line_filter": "Line Filter (comma-separated, optional)"
+        },
+        "data_description": {
+          "stop_id": "The RET stop identifier (e.g., NL:Q:31000539 or just 31000539)",
+          "stop_name": "A friendly name for this stop (e.g., Beurs Metro)",
+          "line_filter": "Optional: only show specific lines (e.g., 2, 25, E)"
+        }
+      },
+      "ns": {
+        "title": "Configure NS Station",
+        "description": "Configure an NS (Nederlandse Spoorwegen) railway station.\n\nStation code example: {station_code_example}\nAPI Key: {api_key_info}",
+        "data": {
+          "ns_api_key": "NS API Key",
+          "station_code": "Station Code",
+          "station_name": "Station Name"
+        },
+        "data_description": {
+          "ns_api_key": "Your NS API key from https://apiportal.ns.nl",
+          "station_code": "The NS station code (e.g., Rtd for Rotterdam Centraal, Asd for Amsterdam Centraal)",
+          "station_name": "A friendly name for this station"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the API. Please check your internet connection and try again.",
+      "invalid_stop": "Invalid stop ID. Please verify the stop ID and try again.",
+      "invalid_station": "Invalid station code or API key. Please verify and try again.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This stop/station is already configured.",
+      "unknown_operator": "Unknown operator selected."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Options",
+        "description": "Configure update interval and departure display options.",
+        "data": {
+          "max_departures": "Maximum number of departures to show",
+          "line_filter": "Line Filter (comma-separated, optional)",
+          "monitor_disruptions": "Monitor disruptions and maintenance (NS only)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "operator": {
+      "options": {
+        "ret": "RET (Rotterdam Metro/Tram/Bus)",
+        "ns": "NS (Dutch Railways)"
+      }
+    }
+  }
+}
