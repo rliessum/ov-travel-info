@@ -44,11 +44,11 @@ class NSAPIClient:
             "station": station_code,
             "maxJourneys": max_results,
         }
-        
+
         headers = {
             "Ocp-Apim-Subscription-Key": self._api_key,
         }
-        
+
         _LOGGER.debug("Fetching NS departures from %s for station %s", url, station_code)
 
         try:
@@ -58,9 +58,9 @@ class NSAPIClient:
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    
+
             _LOGGER.debug("Received NS data: %s", str(data)[:200])
-            
+
             return self._parse_departures(data, max_results)
 
         except asyncio.TimeoutError:
@@ -82,25 +82,25 @@ class NSAPIClient:
     ) -> list[dict[str, Any]]:
         """Parse NS API response into departure list."""
         departures = []
-        
+
         payload = data.get("payload", {})
         departures_data = payload.get("departures", [])
-        
+
         for departure_data in departures_data[:max_results]:
             # Extract departure information
             planned_datetime_str = departure_data.get("plannedDateTime")
             actual_datetime_str = departure_data.get("actualDateTime")
-            
+
             if not planned_datetime_str:
                 continue
-            
+
             try:
                 # Parse times (NS API uses ISO format)
                 scheduled_dt = datetime.fromisoformat(
                     planned_datetime_str.replace("Z", "+00:00")
                 )
                 scheduled_dt = scheduled_dt.astimezone(self._tz)
-                
+
                 if actual_datetime_str:
                     actual_dt = datetime.fromisoformat(
                         actual_datetime_str.replace("Z", "+00:00")
@@ -110,18 +110,18 @@ class NSAPIClient:
                 else:
                     actual_dt = scheduled_dt
                     delay_minutes = 0
-                    
+
             except (ValueError, AttributeError) as err:
                 _LOGGER.debug("Error parsing time: %s", err)
                 continue
-            
+
             # Get route stations for destination
             route_stations = departure_data.get("routeStations", [])
             destination = route_stations[-1].get("mediumName", "Unknown") if route_stations else "Unknown"
-            
+
             # Check for cancellation
             cancelled = departure_data.get("cancelled", False)
-            
+
             departure = {
                 "line": departure_data.get("trainCategory", ""),
                 "operator": departure_data.get("product", {}).get("operatorName", OPERATOR_NS),
@@ -135,9 +135,9 @@ class NSAPIClient:
                 "cancelled": cancelled,
                 "departure_status": departure_data.get("departureStatus", ""),
             }
-            
+
             departures.append(departure)
-        
+
         return departures
 
     async def async_validate_station(self, station_code: str) -> bool:
@@ -151,7 +151,7 @@ class NSAPIClient:
             True if valid, False otherwise
         """
         try:
-            departures = await self.async_get_departures(station_code, max_results=1)
+            await self.async_get_departures(station_code, max_results=1)
             return True
         except ClientError as err:
             # 404 or 400 means invalid station
@@ -171,29 +171,29 @@ class NSAPIClient:
             List of station dictionaries with code and name
         """
         url = f"{self._base_url}/stations"
-        
+
         headers = {
             "Ocp-Apim-Subscription-Key": self._api_key,
         }
-        
+
         try:
             async with asyncio.timeout(10):
                 async with self._session.get(url, headers=headers) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    
+
             stations = []
             payload = data.get("payload", [])
-            
+
             for station in payload:
                 stations.append({
                     "code": station.get("code"),
                     "name": station.get("namen", {}).get("lang", ""),
                     "country": station.get("land", ""),
                 })
-            
+
             return stations
-            
+
         except Exception as err:
             _LOGGER.warning("Error fetching NS stations: %s", err)
             return []

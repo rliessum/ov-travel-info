@@ -40,17 +40,17 @@ class NSDisruptionsAPIClient:
             List of disruption dictionaries
         """
         url = f"{self._base_url}/disruptions"
-        
+
         params = {}
         if station_code:
             params["station"] = station_code
         if is_active:
             params["isActive"] = "true"
-        
+
         headers = {
             "Ocp-Apim-Subscription-Key": self._api_key,
         }
-        
+
         _LOGGER.debug("Fetching disruptions from %s", url)
 
         try:
@@ -60,9 +60,9 @@ class NSDisruptionsAPIClient:
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    
+
             _LOGGER.debug("Received disruption data: %s", str(data)[:200])
-            
+
             # API returns a list directly, not wrapped in a payload
             if isinstance(data, list):
                 return self._parse_disruptions(data)
@@ -86,22 +86,22 @@ class NSDisruptionsAPIClient:
     ) -> list[dict[str, Any]]:
         """Parse NS Disruptions API response into disruption list."""
         disruptions = []
-        
+
         for disruption_data in data:
             # Skip if not a disruption or calamity
             disruption_type = disruption_data.get("type")
             if not disruption_type:
                 continue
-            
+
             # Extract basic information
             disruption_id = disruption_data.get("id", "")
             is_active = disruption_data.get("isActive", False)
             title = disruption_data.get("title", "Unknown disruption")
-            
+
             # Parse timestamps
             start_time = disruption_data.get("start")
             end_time = disruption_data.get("end")
-            
+
             try:
                 if start_time:
                     start_dt = datetime.fromisoformat(
@@ -110,7 +110,7 @@ class NSDisruptionsAPIClient:
                     start_dt = start_dt.astimezone(self._tz)
                 else:
                     start_dt = None
-                
+
                 if end_time:
                     end_dt = datetime.fromisoformat(
                         end_time.replace("Z", "+00:00")
@@ -118,19 +118,19 @@ class NSDisruptionsAPIClient:
                     end_dt = end_dt.astimezone(self._tz)
                 else:
                     end_dt = None
-                    
+
             except (ValueError, AttributeError) as err:
                 _LOGGER.debug("Error parsing disruption time: %s", err)
                 start_dt = None
                 end_dt = None
-            
+
             # Extract phase and impact
             phase = disruption_data.get("phase", {})
             phase_label = phase.get("label", "") if isinstance(phase, dict) else ""
-            
+
             impact = disruption_data.get("impact", {})
             impact_value = impact.get("value", 0) if isinstance(impact, dict) else 0
-            
+
             # Extract affected stations from publication sections
             stations = []
             publication_sections = disruption_data.get("publicationSections", [])
@@ -141,7 +141,7 @@ class NSDisruptionsAPIClient:
                     station_name = station.get("name", "")
                     if station_name and station_name not in stations:
                         stations.append(station_name)
-            
+
             # Extract cause from first timespan if available
             cause = ""
             timespans = disruption_data.get("timespans", [])
@@ -150,7 +150,7 @@ class NSDisruptionsAPIClient:
                 cause_data = first_timespan.get("cause", {})
                 if isinstance(cause_data, dict):
                     cause = cause_data.get("label", "")
-            
+
             # Build disruption dictionary
             disruption = {
                 "id": disruption_id,
@@ -165,14 +165,14 @@ class NSDisruptionsAPIClient:
                 "cause": cause,
                 "period": disruption_data.get("period", ""),
             }
-            
+
             # Add expected duration if available
             expected_duration = disruption_data.get("expectedDuration", {})
             if isinstance(expected_duration, dict):
                 disruption["expected_duration"] = expected_duration.get("description", "")
-            
+
             disruptions.append(disruption)
-        
+
         return disruptions
 
     async def async_get_station_disruptions(

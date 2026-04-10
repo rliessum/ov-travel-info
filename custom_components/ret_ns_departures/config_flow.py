@@ -7,7 +7,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
@@ -79,27 +79,27 @@ class RETNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Validate the stop ID
             session = async_get_clientsession(self.hass)
             client = RETAPIClient(session)
-            
+
             stop_id = user_input[CONF_STOP_ID]
-            
+
             try:
                 is_valid = await client.async_validate_stop(stop_id)
-                
+
                 if not is_valid:
                     errors[CONF_STOP_ID] = "invalid_stop"
                 else:
                     # Store the configuration
                     self._data.update(user_input)
-                    
+
                     # Create unique ID
                     await self.async_set_unique_id(f"ret_{stop_id}")
                     self._abort_if_unique_id_configured()
-                    
+
                     return self.async_create_entry(
                         title=f"RET {user_input[CONF_STOP_NAME]}",
                         data=self._data,
                     )
-                    
+
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.error("Error validating RET stop: %s", err)
                 errors["base"] = "cannot_connect"
@@ -133,27 +133,27 @@ class RETNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             session = async_get_clientsession(self.hass)
             api_key = user_input[CONF_NS_API_KEY]
             client = NSAPIClient(session, api_key)
-            
+
             station_code = user_input[CONF_STATION_CODE]
-            
+
             try:
                 is_valid = await client.async_validate_station(station_code)
-                
+
                 if not is_valid:
                     errors[CONF_STATION_CODE] = "invalid_station"
                 else:
                     # Store the configuration
                     self._data.update(user_input)
-                    
+
                     # Create unique ID
                     await self.async_set_unique_id(f"ns_{station_code}")
                     self._abort_if_unique_id_configured()
-                    
+
                     return self.async_create_entry(
                         title=f"NS {user_input[CONF_STATION_NAME]}",
                         data=self._data,
                     )
-                    
+
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.error("Error validating NS station: %s", err)
                 errors["base"] = "cannot_connect"
@@ -200,7 +200,7 @@ class RETNSOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         operator = self.config_entry.data.get(CONF_OPERATOR)
-        
+
         options_schema = {
             vol.Optional(
                 CONF_MAX_DEPARTURES,
@@ -209,7 +209,7 @@ class RETNSOptionsFlow(config_entries.OptionsFlow):
                 ),
             ): cv.positive_int,
         }
-        
+
         # Add RET-specific options
         if operator == STOP_TYPE_RET:
             options_schema[
@@ -218,7 +218,7 @@ class RETNSOptionsFlow(config_entries.OptionsFlow):
                     default=self.config_entry.options.get(CONF_LINE_FILTER, ""),
                 )
             ] = str
-        
+
         # Add NS-specific options
         if operator == STOP_TYPE_NS:
             options_schema[

@@ -1,0 +1,19 @@
+[MAIN]
+py-version = 3.11
+
+[MESSAGES CONTROL]
+# CI does not install Home Assistant or all runtime deps; integrations rely on HA at runtime.
+disable =
+    import-error,
+    duplicate-code,
+    too-few-public-methods,
+    too-many-locals,
+    too-many-branches,
+    too-many-nested-blocks,
+    too-many-statements,
+    broad-exception-caught,
+    no-else-return,
+    redefined-outer-name,
+
+[FORMAT]
+max-line-length = 120

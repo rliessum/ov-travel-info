@@ -1,7 +1,6 @@
 """Sensor platform for RET & NS Departures."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import logging
 from typing import Any
 
@@ -43,21 +42,21 @@ async def async_setup_entry(
 ) -> None:
     """Set up RET & NS Departures sensors."""
     coordinator: DeparturesCoordinator = hass.data[DOMAIN][config_entry.entry_id]
-    
+
     operator = config_entry.data.get(CONF_OPERATOR)
-    
+
     if operator == STOP_TYPE_RET:
         location_name = config_entry.data.get(CONF_STOP_NAME, "Unknown Stop")
     elif operator == STOP_TYPE_NS:
         location_name = config_entry.data.get(CONF_STATION_NAME, "Unknown Station")
     else:
         location_name = "Unknown"
-    
+
     entities = [
         NextDepartureSensor(coordinator, config_entry, location_name),
         TimeToNextDepartureSensor(coordinator, config_entry, location_name),
     ]
-    
+
     async_add_entities(entities)
 
 
@@ -75,13 +74,12 @@ class DepartureSensorBase(CoordinatorEntity[DeparturesCoordinator], SensorEntity
         self._config_entry = config_entry
         self._location_name = location_name
         self._attr_has_entity_name = True
-        
+
         operator = config_entry.data.get(CONF_OPERATOR, "unknown")
-        location_id = coordinator.location_id
-        
+
         # Create unique ID
         self._attr_unique_id = f"{config_entry.entry_id}_{self._sensor_type}"
-        
+
         # Create device info for grouping sensors
         self._attr_device_info = {
             "identifiers": {(DOMAIN, config_entry.entry_id)},
@@ -125,17 +123,17 @@ class NextDepartureSensor(DepartureSensorBase):
     def native_value(self) -> str | None:
         """Return the state of the sensor."""
         departures = self._departures
-        
+
         if not departures:
             return None
-        
+
         next_departure = departures[0]
         actual_time = next_departure.get("actual_time")
-        
+
         if actual_time is None:
             # Train is cancelled
             return "Cancelled"
-        
+
         # Return ISO format time
         return actual_time.isoformat()
 
@@ -143,21 +141,21 @@ class NextDepartureSensor(DepartureSensorBase):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         departures = self._departures
-        
+
         if not departures:
             return {
                 ATTR_DEPARTURES: [],
                 ATTR_STOP_NAME: self._location_name,
             }
-        
+
         next_departure = departures[0]
-        
+
         # Format departures for attributes
         formatted_departures = []
         for dep in departures:
             actual_time = dep.get("actual_time")
             scheduled_time = dep.get("scheduled_time")
-            
+
             formatted_dep = {
                 ATTR_LINE: dep.get("line", ""),
                 ATTR_OPERATOR: dep.get("operator", ""),
@@ -167,7 +165,7 @@ class NextDepartureSensor(DepartureSensorBase):
                 ATTR_SCHEDULED_TIME: scheduled_time.isoformat() if scheduled_time else None,
                 ATTR_ACTUAL_TIME: actual_time.isoformat() if actual_time else None,
             }
-            
+
             # Add NS-specific attributes
             if "train_type" in dep:
                 formatted_dep[ATTR_TRAIN_TYPE] = dep.get("train_type", "")
@@ -175,9 +173,9 @@ class NextDepartureSensor(DepartureSensorBase):
                 formatted_dep[ATTR_TRIP_NUMBER] = dep.get("trip_number", "")
             if "cancelled" in dep:
                 formatted_dep["cancelled"] = dep.get("cancelled", False)
-            
+
             formatted_departures.append(formatted_dep)
-        
+
         return {
             ATTR_LINE: next_departure.get("line", ""),
             ATTR_OPERATOR: next_departure.get("operator", ""),
@@ -221,22 +219,22 @@ class TimeToNextDepartureSensor(DepartureSensorBase):
     def native_value(self) -> int | None:
         """Return the state of the sensor."""
         departures = self._departures
-        
+
         if not departures:
             return None
-        
+
         next_departure = departures[0]
         actual_time = next_departure.get("actual_time")
-        
+
         if actual_time is None:
             # Train is cancelled
             return None
-        
+
         # Calculate minutes until departure
         now = dt_util.now()
         time_diff = actual_time - now
         minutes = int(time_diff.total_seconds() / 60)
-        
+
         return max(0, minutes)  # Don't return negative values
 
     @property
@@ -248,14 +246,14 @@ class TimeToNextDepartureSensor(DepartureSensorBase):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         departures = self._departures
-        
+
         if not departures:
             return {
                 ATTR_STOP_NAME: self._location_name,
             }
-        
+
         next_departure = departures[0]
-        
+
         return {
             ATTR_LINE: next_departure.get("line", ""),
             ATTR_OPERATOR: next_departure.get("operator", ""),

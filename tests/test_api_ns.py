@@ -1,6 +1,5 @@
 """Tests for the NS API client."""
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from aiohttp import ClientError
@@ -74,11 +73,11 @@ async def test_get_departures_success(ns_client, mock_session, mock_ns_response)
     mock_response.status = 200
     mock_response.json = AsyncMock(return_value=mock_ns_response)
     mock_response.raise_for_status = Mock()
-    
+
     mock_session.get.return_value.__aenter__.return_value = mock_response
-    
+
     departures = await ns_client.async_get_departures("Rtd", max_results=5)
-    
+
     assert len(departures) == 2
     assert departures[0]["line"] == "Intercity"
     assert departures[0]["destination"] == "Amsterdam Centraal"
@@ -113,16 +112,16 @@ async def test_get_departures_with_cancellation(ns_client, mock_session):
             ]
         }
     }
-    
+
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.json = AsyncMock(return_value=mock_response_data)
     mock_response.raise_for_status = Mock()
-    
+
     mock_session.get.return_value.__aenter__.return_value = mock_response
-    
+
     departures = await ns_client.async_get_departures("Rtd", max_results=5)
-    
+
     assert len(departures) == 1
     assert departures[0]["cancelled"] is True
     assert departures[0]["actual_time"] is None
@@ -136,11 +135,11 @@ async def test_get_departures_api_key_header(ns_client, mock_session, mock_ns_re
     mock_response.status = 200
     mock_response.json = AsyncMock(return_value=mock_ns_response)
     mock_response.raise_for_status = Mock()
-    
+
     mock_session.get.return_value.__aenter__.return_value = mock_response
-    
+
     await ns_client.async_get_departures("Rtd", max_results=5)
-    
+
     # Verify the API key was included in headers
     mock_session.get.assert_called_once()
     call_kwargs = mock_session.get.call_args[1]
@@ -152,7 +151,7 @@ async def test_get_departures_api_key_header(ns_client, mock_session, mock_ns_re
 async def test_get_departures_network_error(ns_client, mock_session):
     """Test handling of network errors."""
     mock_session.get.side_effect = ClientError("Network error")
-    
+
     with pytest.raises(ClientError):
         await ns_client.async_get_departures("Rtd")
 
@@ -164,11 +163,11 @@ async def test_validate_station_success(ns_client, mock_session, mock_ns_respons
     mock_response.status = 200
     mock_response.json = AsyncMock(return_value=mock_ns_response)
     mock_response.raise_for_status = Mock()
-    
+
     mock_session.get.return_value.__aenter__.return_value = mock_response
-    
+
     is_valid = await ns_client.async_validate_station("Rtd")
-    
+
     assert is_valid is True
 
 
@@ -178,9 +177,9 @@ async def test_validate_station_invalid(ns_client, mock_session):
     error = ClientError("Not found")
     error.status = 404
     mock_session.get.side_effect = error
-    
+
     is_valid = await ns_client.async_validate_station("INVALID")
-    
+
     assert is_valid is False
 
 
@@ -201,16 +200,16 @@ async def test_list_stations(ns_client, mock_session):
             },
         ]
     }
-    
+
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.json = AsyncMock(return_value=mock_response_data)
     mock_response.raise_for_status = Mock()
-    
+
     mock_session.get.return_value.__aenter__.return_value = mock_response
-    
+
     stations = await ns_client.async_list_stations()
-    
+
     assert len(stations) == 2
     assert stations[0]["code"] == "Rtd"
     assert stations[0]["name"] == "Rotterdam Centraal"

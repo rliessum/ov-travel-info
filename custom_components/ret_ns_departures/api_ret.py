@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 import logging
 import re
-import json
 from typing import Any
 
 from aiohttp import ClientError, ClientSession
@@ -46,7 +45,7 @@ class RETAPIClient:
         # Convert stop_id to lowercase URL format
         stop_name = stop_id.lower().replace(" ", "-")
         url = f"{self._base_url}/{stop_name}.html"
-        
+
         _LOGGER.debug("Fetching RET departures from %s", url)
 
         try:
@@ -54,9 +53,9 @@ class RETAPIClient:
                 async with self._session.get(url) as response:
                     response.raise_for_status()
                     html_content = await response.text()
-                    
+
             _LOGGER.debug("Received RET HTML page, parsing departures")
-            
+
             return await self._parse_departures(
                 html_content, max_results, line_filter
             )
@@ -79,30 +78,30 @@ class RETAPIClient:
     ) -> list[dict[str, Any]]:
         """Parse HTML content and extract departure information."""
         departures = []
-        
+
         try:
             # Parse HTML with BeautifulSoup
             soup = BeautifulSoup(html_content, 'html.parser')
-            
+
             # Find all departure rows
             departure_rows = soup.find_all('a', class_='modal__toggle--generated')
-            
+
             for row in departure_rows:
                 # Extract line name (e.g., "Tram 8")
                 line_info = row.find('span', class_='favorite__info')
                 if not line_info:
                     continue
-                    
+
                 line_text = line_info.get_text(strip=True)
-                
+
                 # Extract just the line number/letter from "Tram 8" or "Bus 33"
                 line_match = re.search(r'(\d+[A-Z]?|[A-Z])$', line_text)
                 line_number = line_match.group(1) if line_match else line_text
-                
+
                 # Apply line filter if specified
                 if line_filter and line_number not in line_filter:
                     continue
-                
+
                 # Extract direction
                 direction_div = row.find('div', class_='favorite__stop')
                 destination = "Unknown"
@@ -110,44 +109,42 @@ class RETAPIClient:
                     direction_spans = direction_div.find_all('span', class_='favorite__info')
                     if direction_spans:
                         destination = direction_spans[-1].get_text(strip=True)
-                
+
                 # Extract departure time
                 time_spans = row.find_all('span', class_='favorite__time__amount')
                 if not time_spans:
                     continue
-                    
+
                 time_str = time_spans[0].get_text(strip=True)
-                
+
                 # Extract minutes until departure
                 minutes_str = None
                 minutes_span = row.find('span', class_='favorite__time__amount minutes')
                 if minutes_span:
                     minutes_str = minutes_span.get_text(strip=True)
-                
+
                 # Parse departure time
                 try:
                     # Current date with departure time
                     now = datetime.now(self._tz)
                     hour, minute = map(int, time_str.split(':'))
-                    
+
                     scheduled_dt = now.replace(
                         hour=hour, minute=minute, second=0, microsecond=0
                     )
-                    
+
                     # If the time is in the past, assume it's for tomorrow
                     if scheduled_dt < now:
-                        from datetime import timedelta
                         scheduled_dt += timedelta(days=1)
-                    
+
                     # Calculate actual time based on minutes
                     actual_dt = scheduled_dt
                     delay_minutes = 0
-                    
+
                     # If we have relative minutes, use that for actual time
                     if minutes_str and minutes_str.lower() != 'nu':
                         try:
                             minutes_until = int(minutes_str)
-                            from datetime import timedelta
                             actual_dt = now + timedelta(minutes=minutes_until)
                             # Calculate delay
                             expected_scheduled = actual_dt.replace(
@@ -159,18 +156,18 @@ class RETAPIClient:
                                 )
                         except ValueError:
                             pass
-                    
+
                 except (ValueError, AttributeError) as err:
                     _LOGGER.debug("Error parsing time '%s': %s", time_str, err)
                     continue
-                
+
                 # Extract transport type from line text
                 transport_type = "tram"
                 if "Bus" in line_text:
                     transport_type = "bus"
                 elif "Metro" in line_text:
                     transport_type = "metro"
-                
+
                 departure = {
                     "line": line_number,
                     "operator": OPERATOR_RET,
@@ -182,23 +179,20 @@ class RETAPIClient:
                     "transport_type": transport_type,
                     "trip_number": "",
                 }
-                
+
                 departures.append(departure)
-        
+
         except Exception as err:
             _LOGGER.error("Error parsing RET HTML: %s", err)
             raise
-        
+
         # Sort by actual departure time
         departures.sort(key=lambda x: x["actual_time"])
-        
+
         # Return only future departures, limited to max_results
         now = datetime.now(self._tz)
         future_departures = [d for d in departures if d["actual_time"] > now]
-        
-        return future_departures[:max_results]
-        future_departures = [d for d in departures if d["actual_time"] > now]
-        
+
         return future_departures[:max_results]
 
     async def async_validate_stop(self, stop_id: str) -> bool:

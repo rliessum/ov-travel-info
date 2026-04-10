@@ -44,10 +44,10 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.entry_id = entry_id
         self.config = config
         self.operator = config.get(CONF_OPERATOR)
-        
+
         # Initialize API clients
         session = async_get_clientsession(hass)
-        
+
         if self.operator == STOP_TYPE_RET:
             self.api_client = RETAPIClient(session)
             self.location_id = config.get(CONF_STOP_ID)
@@ -64,7 +64,7 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.disruptions_client = None
         else:
             raise ValueError(f"Unknown operator: {self.operator}")
-        
+
         super().__init__(
             hass,
             _LOGGER,
@@ -76,7 +76,7 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Fetch data from API."""
         try:
             max_departures = self.config.get(CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES)
-            
+
             if self.operator == STOP_TYPE_RET:
                 line_filter = self.config.get(CONF_LINE_FILTER)
                 # Convert comma-separated string to list if needed
@@ -84,7 +84,7 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     line_filter = [l.strip() for l in line_filter.split(",")]
                 elif not line_filter:
                     line_filter = None
-                    
+
                 departures = await self.api_client.async_get_departures(
                     self.location_id,
                     max_results=max_departures,
@@ -97,19 +97,19 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
             else:
                 raise UpdateFailed(f"Unknown operator: {self.operator}")
-            
+
             _LOGGER.debug(
                 "Fetched %d departures for %s %s",
                 len(departures),
                 self.operator,
                 self.location_id,
             )
-            
+
             result = {
                 "departures": departures,
                 "last_update": self.hass.loop.time(),
             }
-            
+
             # Fetch disruptions if monitoring is enabled for NS
             if self.disruptions_client and self.operator == STOP_TYPE_NS:
                 try:
@@ -127,8 +127,8 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     _LOGGER.warning("Error fetching disruptions: %s", err)
                     # Don't fail the entire update if disruptions fail
                     result["disruptions"] = []
-            
+
             return result
-            
+
         except Exception as err:
             raise UpdateFailed(f"Error fetching departures: {err}") from err

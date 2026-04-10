@@ -1,5 +1,5 @@
 """Tests for the config flow."""
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 from homeassistant import config_entries, data_entry_flow
@@ -24,7 +24,7 @@ async def test_form_user_step(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    
+
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "user"
 
@@ -35,13 +35,13 @@ async def test_form_ret_step(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    
+
     # Select RET operator
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_OPERATOR: STOP_TYPE_RET},
     )
-    
+
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "ret"
 
@@ -52,13 +52,13 @@ async def test_form_ret_success(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    
+
     # Select RET operator
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_OPERATOR: STOP_TYPE_RET},
     )
-    
+
     # Configure RET stop with mocked validation
     with patch(
         "custom_components.ret_ns_departures.config_flow.RETAPIClient.async_validate_stop",
@@ -71,7 +71,7 @@ async def test_form_ret_success(hass: HomeAssistant):
                 CONF_STOP_NAME: "Beurs Metro",
             },
         )
-    
+
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["title"] == "RET Beurs Metro"
     assert result["data"][CONF_OPERATOR] == STOP_TYPE_RET
@@ -84,13 +84,13 @@ async def test_form_ret_invalid_stop(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    
+
     # Select RET operator
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_OPERATOR: STOP_TYPE_RET},
     )
-    
+
     # Configure RET stop with invalid ID
     with patch(
         "custom_components.ret_ns_departures.config_flow.RETAPIClient.async_validate_stop",
@@ -103,7 +103,7 @@ async def test_form_ret_invalid_stop(hass: HomeAssistant):
                 CONF_STOP_NAME: "Invalid Stop",
             },
         )
-    
+
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["errors"][CONF_STOP_ID] == "invalid_stop"
 
@@ -114,13 +114,13 @@ async def test_form_ns_step(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    
+
     # Select NS operator
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_OPERATOR: STOP_TYPE_NS},
     )
-    
+
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "ns"
 
@@ -131,13 +131,13 @@ async def test_form_ns_success(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    
+
     # Select NS operator
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_OPERATOR: STOP_TYPE_NS},
     )
-    
+
     # Configure NS station with mocked validation
     with patch(
         "custom_components.ret_ns_departures.config_flow.NSAPIClient.async_validate_station",
@@ -151,7 +151,7 @@ async def test_form_ns_success(hass: HomeAssistant):
                 CONF_STATION_NAME: "Rotterdam Centraal",
             },
         )
-    
+
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["title"] == "NS Rotterdam Centraal"
     assert result["data"][CONF_OPERATOR] == STOP_TYPE_NS
@@ -164,13 +164,13 @@ async def test_form_ns_invalid_station(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    
+
     # Select NS operator
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_OPERATOR: STOP_TYPE_NS},
     )
-    
+
     # Configure NS station with invalid code
     with patch(
         "custom_components.ret_ns_departures.config_flow.NSAPIClient.async_validate_station",
@@ -184,6 +184,6 @@ async def test_form_ns_invalid_station(hass: HomeAssistant):
                 CONF_STATION_NAME: "Invalid Station",
             },
         )
-    
+
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["errors"][CONF_STATION_CODE] == "invalid_station"

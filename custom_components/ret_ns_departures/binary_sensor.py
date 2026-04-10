@@ -42,18 +42,18 @@ async def async_setup_entry(
 ) -> None:
     """Set up NS Disruption binary sensors."""
     coordinator: DeparturesCoordinator = hass.data[DOMAIN][config_entry.entry_id]
-    
+
     operator = config_entry.data.get(CONF_OPERATOR)
     monitor_disruptions = config_entry.options.get(CONF_MONITOR_DISRUPTIONS, False)
-    
+
     # Only create disruption sensor for NS stations when monitoring is enabled
     if operator == STOP_TYPE_NS and monitor_disruptions:
         location_name = config_entry.data.get(CONF_STATION_NAME, "Unknown Station")
-        
+
         entities = [
             StationDisruptionSensor(coordinator, config_entry, location_name),
         ]
-        
+
         async_add_entities(entities)
 
 
@@ -73,12 +73,10 @@ class StationDisruptionSensor(CoordinatorEntity[DeparturesCoordinator], BinarySe
         self._config_entry = config_entry
         self._location_name = location_name
         self._attr_has_entity_name = True
-        
-        location_id = coordinator.location_id
-        
+
         # Create unique ID
         self._attr_unique_id = f"{config_entry.entry_id}_disruptions"
-        
+
         # Use same device info as departure sensors for grouping
         self._attr_device_info = {
             "identifiers": {(DOMAIN, config_entry.entry_id)},
@@ -108,7 +106,7 @@ class StationDisruptionSensor(CoordinatorEntity[DeparturesCoordinator], BinarySe
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         disruptions = self._get_disruptions()
-        
+
         # Format disruptions for attributes
         formatted_disruptions = []
         for disruption in disruptions:
@@ -120,28 +118,28 @@ class StationDisruptionSensor(CoordinatorEntity[DeparturesCoordinator], BinarySe
                 ATTR_DISRUPTION_PHASE: disruption.get("phase", ""),
                 ATTR_DISRUPTION_CAUSE: disruption.get("cause", ""),
             }
-            
+
             # Add timestamps if available
             start_time = disruption.get("start")
             if start_time:
                 formatted_disruption[ATTR_DISRUPTION_START] = start_time.isoformat()
-            
+
             end_time = disruption.get("end")
             if end_time:
                 formatted_disruption[ATTR_DISRUPTION_END] = end_time.isoformat()
-            
+
             # Add station list
             stations = disruption.get("stations", [])
             formatted_disruption[ATTR_DISRUPTION_STATIONS] = stations
-            
+
             # Add period and expected duration if available
             if "period" in disruption:
                 formatted_disruption["period"] = disruption["period"]
             if "expected_duration" in disruption:
                 formatted_disruption["expected_duration"] = disruption["expected_duration"]
-            
+
             formatted_disruptions.append(formatted_disruption)
-        
+
         return {
             ATTR_DISRUPTIONS: formatted_disruptions,
             "count": len(formatted_disruptions),
