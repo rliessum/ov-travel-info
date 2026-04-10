@@ -6,7 +6,7 @@ This document provides a visual overview of what the RET & NS Departures integra
 
 ## Entities Created
 
-For each configured stop or station, the integration creates **2 sensor entities**:
+For each configured stop or station, the integration creates **two departure sensors**. For **NS** entries, you can optionally enable a **third entity** (binary sensor) for disruptions; see [features/ns-disruptions.md](features/ns-disruptions.md).
 
 ### 1. Next Departure Sensor
 
@@ -66,6 +66,18 @@ departures:                  # Array of next departures
 **State Class**: `measurement`
 
 **Attributes**: Same as Next Departure Sensor (for context)
+
+### 3. NS Disruptions (optional)
+
+Only when **Monitor disruptions** is enabled for an NS station.
+
+**Entity ID pattern**: `binary_sensor.<device_slug>_disruptions` (device is `NS <Station Name>`; entity name is **Disruptions**)
+
+**State**: `on` if there are active disruptions for that station, otherwise `off`
+
+**Device class**: `problem`
+
+**Attributes**: `disruptions` (list), `count`, `station_name` — see [features/ns-disruptions.md](features/ns-disruptions.md).
 
 ## Device Grouping
 

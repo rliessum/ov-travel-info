@@ -19,7 +19,7 @@ Before installing this integration, ensure you have:
 2. Click on **Integrations**
 3. Click the **⋮** menu (three dots) in the top right
 4. Select **Custom repositories**
-5. Add repository URL: `https://github.com/yourusername/ret-ns-departures`
+5. Add repository URL: `https://github.com/rliessum/ov-travel-info`
 6. Select category: **Integration**
 7. Click **Add**
 8. Find "RET & NS Departures" in HACS and click **Download**
@@ -59,22 +59,14 @@ Select which transport operator you want to configure:
 
 If you selected RET:
 
-1. **Stop ID**: Enter the RET stop identifier
-   - Format: `31000539` or `NL:Q:31000539`
-   - Find stop IDs:
-     - Visit http://v0.ovapi.nl/stopareacode/NL:Q:YOUR_STOP_ID
-     - Check RET open data portal
-   
-   **Common Rotterdam stops**:
-   - `31000539` - Beurs (Metro)
-   - `31001363` - Rotterdam Centraal (Metro)
-   - `31000598` - Coolhaven (Tram)
-   - `31000544` - Oostplein (Metro)
-   - `31000540` - Leuvehaven (Metro)
+1. **Stop ID**: Enter the URL slug for the halt on the RET website (not a numeric OVapi code).
+   - Open a halt in the browser, e.g. `https://www.ret.nl/home/reizen/halte/beurs.html`
+   - Use only the slug: `beurs` (lowercase; use hyphens exactly as in the URL).
+   - Examples: `beurs`, `schiekade`, `centraal-station`
 
 2. **Stop Name**: Enter a friendly name
    - Example: "Beurs Metro" or "Home Stop"
-   - This will be used in entity names
+   - This will be used in device and entity names
 
 3. **Line Filter** (optional): Enter specific line numbers
    - Format: `2, 25, E` (comma-separated)
@@ -135,6 +127,7 @@ To update settings after initial configuration:
 4. Update:
    - **Maximum departures**: Number of departures to track (default: 5)
    - **Line Filter** (RET only): Update line filtering
+   - **Monitor disruptions** (NS only): Toggle the optional disruption binary sensor
 
 ## Adding Multiple Stops/Stations
 
@@ -205,11 +198,11 @@ template:
 - **Check**: Ensure files are in `config/custom_components/ret_ns_departures/`
 - **Verify**: Check Home Assistant logs for errors
 
-### RET: "Invalid stop ID" error
+### RET: "Invalid stop ID" or no departures
 
-- **Solution**: Verify your stop ID format
-- **Test**: Visit http://v0.ovapi.nl/stopareacode/NL:Q:YOUR_STOP_ID
-- **Try**: Add "NL:Q:" prefix if missing (e.g., `NL:Q:31000539`)
+- **Solution**: Use the halt slug from `https://www.ret.nl/home/reizen/halte/<slug>.html`
+- **Test**: Open that URL in a browser; if it 404s, the slug is wrong
+- **Note**: Numeric `NL:Q:` codes from older docs are no longer used for RET
 
 ### NS: "Invalid station code or API key" error
 
@@ -221,7 +214,7 @@ template:
 ### No departures showing
 
 - **Check**: Internet connection is working
-- **RET**: Some stops may have no scheduled departures at certain times
+- **RET**: Some halts may have no departures at certain times; confirm the page loads on ret.nl
 - **NS**: Ensure station code is correct
 - **Look**: Check if line filter is excluding all departures
 - **Wait**: Give it a few minutes - first fetch might take up to 30 seconds
@@ -254,8 +247,8 @@ If you encounter issues:
      logs:
        custom_components.ret_ns_departures: debug
    ```
-3. **Report Issues**: https://github.com/yourusername/ret-ns-departures/issues
-4. **Discussions**: https://github.com/yourusername/ret-ns-departures/discussions
+3. **Report Issues**: https://github.com/rliessum/ov-travel-info/issues
+4. **Discussions**: https://github.com/rliessum/ov-travel-info/discussions
 
 When reporting issues, include:
 - Home Assistant version
@@ -265,10 +258,9 @@ When reporting issues, include:
 
 ## Next Steps
 
-- Review the [README.md](README.md) for advanced usage examples
-- Check [example_configuration.yaml](example_configuration.yaml) for automation ideas
-- Read [STRUCTURE.md](STRUCTURE.md) for technical details
-- Explore sensor attributes for rich departure information
+- Review the [repository README](../README.md) and [overview](overview.md) for dashboards and automations
+- Check [example_configuration.yaml](../example_configuration.yaml) for YAML ideas
+- Read [architecture.md](architecture.md) for technical layout
 
 ## Tips
 

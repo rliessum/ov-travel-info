@@ -1,12 +1,12 @@
 {
   "domain": "ret_ns_departures",
   "name": "RET & NS Departures",
-  "codeowners": ["@custom_integration"],
+  "codeowners": ["@rliessum"],
   "config_flow": true,
-  "documentation": "https://github.com/yourusername/ret-ns-departures",
+  "documentation": "https://github.com/rliessum/ov-travel-info",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/yourusername/ret-ns-departures/issues",
+  "issue_tracker": "https://github.com/rliessum/ov-travel-info/issues",
   "requirements": [
     "aiohttp>=3.8.0",
     "pytz>=2023.3",

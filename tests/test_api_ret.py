@@ -22,7 +22,7 @@ def ret_client(mock_session):
 
 @pytest.fixture
 def mock_ovapi_response():
-    """Create a mock OVapi response."""
+    """Create mock RET halt HTML for parsing tests."""
     return {
         "NL:Q:31000539": {
             "31000539": {

@@ -1,41 +1,43 @@
 # RET & NS Departures for Home Assistant
 
-A production-ready Home Assistant custom integration for real-time public transport departure information in the Netherlands.
+A Home Assistant custom integration for real-time public transport departures in the Netherlands.
+
+**Repository:** [github.com/rliessum/ov-travel-info](https://github.com/rliessum/ov-travel-info)
 
 ## Features
 
-- **RET** (Rotterdam): Real-time metro, tram, and bus departures
-- **NS** (Dutch Railways): Real-time train departures from all Dutch stations
-- **Easy UI configuration** via Home Assistant's config flow
-- **Multiple sensors** per stop/station with rich attributes
-- **Line filtering** for RET departures
-- **Timezone-aware** with proper DST handling
-- **Async/non-blocking** for optimal Home Assistant performance
+- **RET** (Rotterdam): Metro, tram, and bus departures from [ret.nl](https://www.ret.nl) halt pages
+- **NS** (Dutch Railways): Train departures via the official NS API; optional **disruption** binary sensor
+- **Config flow** setup, multiple stops/stations, line filtering (RET), rich sensor attributes
+- **Async** coordinator-based updates; Europe/Amsterdam–aware times
 
-## Quick Start
+## Quick start
 
-1. Install via HACS or manually copy `custom_components/ret_ns_departures` to your config directory
+1. Install via [HACS](https://www.hacs.xyz/) or copy `custom_components/ret_ns_departures` into your Home Assistant `config/custom_components/` directory
 2. Restart Home Assistant
-3. Go to **Settings** → **Devices & Services** → **Add Integration**
-4. Search for "RET & NS Departures"
-5. Configure your stops/stations
+3. **Settings** → **Devices & services** → **Add integration** → search **RET & NS Departures**
 
 ## Documentation
 
-Full documentation is available in [`custom_components/ret_ns_departures/README.md`](custom_components/ret_ns_departures/README.md)
+| Doc | Description |
+|-----|-------------|
+| [docs/README.md](docs/README.md) | Index of all documentation |
+| [docs/installation.md](docs/installation.md) | Install, UI steps, troubleshooting |
+| [docs/overview.md](docs/overview.md) | Entities, Lovelace examples, automations |
+| [docs/architecture.md](docs/architecture.md) | Code layout, APIs, tests |
+| [docs/features/ns-disruptions.md](docs/features/ns-disruptions.md) | NS disruption monitoring |
+| [custom_components/ret_ns_departures/README.md](custom_components/ret_ns_departures/README.md) | Integration readme (shown in HACS) |
 
 ## Requirements
 
 - Home Assistant 2024.1.0 or newer
-- For NS: Free API key from [NS API Portal](https://apiportal.ns.nl)
-- For RET: No API key needed
+- **NS**: Free API key from [NS API Portal](https://apiportal.ns.nl) (Reisinformatie API)
+- **RET**: No API key; use the halt **slug** from the ret.nl URL (see [docs/installation.md](docs/installation.md))
 
-## Support
+## Changelog
 
-- [Report Issues](https://github.com/yourusername/ret-ns-departures/issues)
-- [Discussions](https://github.com/yourusername/ret-ns-departures/discussions)
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details.
-# ov-travel-info
+MIT — see [LICENSE](LICENSE).

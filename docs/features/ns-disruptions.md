@@ -173,9 +173,9 @@ automation:
 
 ## API Information
 
-**Endpoint**: `https://gateway.apiportal.ns.nl/disruptions/v3`
+**Endpoint**: `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/disruptions` (same API portal subscription as departures)
 
-**Authentication**: Uses same NS API key as departures
+**Authentication**: Same NS API key as departures (`Ocp-Apim-Subscription-Key`)
 
 **Rate Limiting**: Standard NS API rate limits apply
 

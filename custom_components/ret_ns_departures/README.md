@@ -2,7 +2,9 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 
-A production-ready Home Assistant custom integration that provides real-time public transport departure information for:
+Long-form documentation (install, architecture, dashboards): [docs/README.md](../../docs/README.md)
+
+A Home Assistant custom integration that provides public transport departure information for:
 
 - **RET** (Rotterdam Electric Tram): Metro, tram, and bus departures in the Rotterdam region
 - **NS** (Nederlandse Spoorwegen): Train departures from Dutch railway stations
@@ -49,7 +51,7 @@ You'll need a free API key from NS:
 4. Copy your API key (Ocp-Apim-Subscription-Key)
 
 #### For RET (Rotterdam)
-No API key required! This integration uses the open [OVapi](http://v0.ovapi.nl) service.
+No API key required. Departures are read from RET halt pages on [ret.nl](https://www.ret.nl); you configure the halt **URL slug** (see below).
 
 ### Setup via UI
 
@@ -61,12 +63,7 @@ No API key required! This integration uses the open [OVapi](http://v0.ovapi.nl) 
 
 #### RET Configuration
 
-- **Stop ID**: The RET stop identifier (e.g., `31000539` or `NL:Q:31000539`)
-  - Find stop IDs on [OVapi documentation](http://v0.ovapi.nl) or RET's open data portal
-  - Common Rotterdam stops:
-    - `31000539` - Beurs (Metro)
-    - `31001363` - Rotterdam Centraal (Metro)
-    - `31000598` - Coolhaven (Tram)
+- **Stop ID**: The halt slug from the RET URL `https://www.ret.nl/home/reizen/halte/<slug>.html` (e.g. `beurs`, `schiekade`, `centraal-station`)
 - **Stop Name**: A friendly name (e.g., "Beurs Metro")
 - **Line Filter** (optional): Comma-separated line numbers (e.g., `2, 25, E`)
 
@@ -94,10 +91,11 @@ After setup, you can configure additional options:
 Available options:
 - **Maximum number of departures**: How many upcoming departures to track (default: 5)
 - **Line Filter** (RET only): Update or change line filtering
+- **Monitor disruptions** (NS only): Adds a **Disruptions** binary sensor when enabled ([details](../../docs/features/ns-disruptions.md))
 
 ## Entities
 
-For each configured stop/station, the integration creates two sensors:
+For each configured stop/station, the integration creates two departure sensors. NS entries can add a third entity when disruption monitoring is enabled:
 
 ### 1. Next Departure Sensor
 
@@ -126,6 +124,10 @@ For each configured stop/station, the integration creates two sensors:
 **Unit**: `min`
 
 **Attributes**: Same as Next Departure Sensor
+
+### 3. Disruptions (NS only, optional)
+
+**Name**: Disruptions · **Type**: binary sensor · **Device class**: `problem` · **ON** when active disruptions apply to the configured station. See [NS disruptions](../../docs/features/ns-disruptions.md).
 
 ## Example Automations
 
@@ -257,13 +259,11 @@ automation:
 
 ## API Information
 
-### RET (OVapi)
+### RET (ret.nl)
 
-This integration uses the [OVapi](http://v0.ovapi.nl) service, which provides real-time public transport data for the Netherlands. No API key is required.
+RET data is loaded from the public halt timetable pages on [ret.nl](https://www.ret.nl). No API key is required.
 
-**Rate Limiting**: Please be respectful. Default polling interval is 30 seconds (minimum 15 seconds).
-
-**Data Source**: OVapi aggregates data from various Dutch public transport operators including RET.
+**Polling**: Default 30 seconds (minimum 15). Scraping may break if RET changes page markup—open an issue if that happens.
 
 ### NS (Dutch Railways)
 
@@ -286,8 +286,8 @@ This integration uses the official [NS Reisinformatie API](https://apiportal.ns.
 ### No departures showing
 
 **For RET**:
-- Verify your stop ID is correct by checking [OVapi](http://v0.ovapi.nl/stopareacode/NL:Q:YOUR_STOP_ID)
-- Some stops may have no scheduled departures at certain times
+- Verify the halt slug matches a working URL on ret.nl
+- Some halts may have no departures at certain times
 - Check if line filtering is excluding all departures
 
 **For NS**:
@@ -316,13 +316,16 @@ The integration will automatically retry on the next update cycle.
 
 ### Running Tests
 
-```bash
-# Install development dependencies
-pip install -r requirements_test.txt
+Use a virtual environment and a Python version supported by `pytest-homeassistant-custom-component` (see Home Assistant dev docs). From the repository root:
 
-# Run tests
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements_test.txt
 pytest tests/
 ```
+
+Layout and API details: [architecture.md](../../docs/architecture.md).
 
 ### Contributing
 
@@ -336,8 +339,8 @@ Contributions are welcome! Please:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/ret-ns-departures/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ret-ns-departures/discussions)
+- **Issues**: [GitHub Issues](https://github.com/rliessum/ov-travel-info/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/rliessum/ov-travel-info/discussions)
 
 ## License
 
@@ -345,14 +348,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [NS](https://www.ns.nl) for providing the official API
-- [OVapi](http://v0.ovapi.nl) for aggregating RET data
-- [RET](https://www.ret.nl) for open data initiatives
-- Home Assistant community for excellent documentation and examples
+- [NS](https://www.ns.nl) for the official travel information API
+- [RET](https://www.ret.nl) for public timetable pages
+- Home Assistant community for documentation and examples
 
 ## Disclaimer
 
-This is an unofficial integration and is not affiliated with, endorsed by, or connected to RET, NS, or OVapi. Use at your own risk.
+This is an unofficial integration and is not affiliated with or endorsed by RET or NS. Use at your own risk.
 
 ---
 

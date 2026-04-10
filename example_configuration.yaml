@@ -3,6 +3,9 @@
 # This file shows examples of how the sensors can be used in your
 # configuration.yaml file (though the integration itself is configured
 # via the UI, not YAML).
+#
+# Entity IDs (e.g. sensor.ret_beurs_metro_next_departure) depend on your
+# device and entity names in Home Assistant; adjust examples to match.
 
 # Example template sensor to create a human-readable departure string
 template:

@@ -13,25 +13,29 @@ ov-travel-info/
 │       ├── const.py                    # Constants and configuration keys
 │       ├── config_flow.py              # UI configuration flow
 │       ├── coordinator.py              # Data update coordinator
-│       ├── sensor.py                   # Sensor entities
-│       ├── api_ret.py                  # RET API client (OVapi)
-│       ├── api_ns.py                   # NS API client
+│       ├── sensor.py                   # Departure sensor entities
+│       ├── binary_sensor.py            # NS disruption binary sensor (optional)
+│       ├── api_ret.py                  # RET client (ret.nl HTML)
+│       ├── api_ns.py                   # NS departures API client
+│       ├── api_disruptions.py          # NS disruptions API client
 │       ├── translations/
 │       │   ├── en.json                 # English translations
 │       │   └── nl.json                 # Dutch translations
 │       ├── strings.json                # UI strings
-│       └── README.md                   # Detailed documentation
+│       └── README.md                   # Integration readme (HACS)
+├── docs/                               # All long-form documentation
 ├── tests/
 │   ├── conftest.py                     # Pytest configuration
-│   ├── test_api_ret.py                 # RET API tests
+│   ├── test_api_ret.py                 # RET client tests
 │   ├── test_api_ns.py                  # NS API tests
 │   └── test_config_flow.py             # Config flow tests
-├── README.md                           # Main project documentation
+├── README.md                           # Repository entry point
 ├── LICENSE                             # MIT License
 ├── CHANGELOG.md                        # Version history
 ├── requirements_test.txt               # Test dependencies
 ├── pytest.ini                          # Pytest configuration
 ├── example_configuration.yaml          # Example HA configuration
+├── hacs.json                           # HACS default metadata
 └── .gitignore                          # Git ignore rules
 ```
 
@@ -43,12 +47,12 @@ ov-travel-info/
    - Integration entry point
    - Handles setup and unload of config entries
    - Creates coordinator instance
-   - Forwards setup to sensor platform
+   - Forwards setup to sensor and binary_sensor platforms
 
 2. **`manifest.json`**
    - Integration metadata
    - Domain, name, version
-   - Dependencies (aiohttp, pytz)
+   - Dependencies (aiohttp, pytz, beautifulsoup4)
    - Documentation links
 
 3. **`const.py`**
@@ -75,55 +79,53 @@ ov-travel-info/
    - Data refresh logic
 
 6. **`api_ret.py`**
-   - RET/OVapi client
-   - Fetches departure data
-   - Parses OVapi responses
-   - Stop validation
+   - RET client: fetches halt HTML from ret.nl and parses departures (BeautifulSoup)
+   - Stop “ID” is the URL slug (e.g. `beurs`)
 
 7. **`api_ns.py`**
-   - NS API client
-   - Fetches train departures
+   - NS Reisinformatie API client (departures)
    - Handles authentication
    - Station validation
 
+8. **`api_disruptions.py`**
+   - NS disruptions endpoint (same API key as departures)
+   - Used when monitoring is enabled
+
 ### Entities
 
-8. **`sensor.py`**
-   - Two sensor types:
-     - Next Departure Sensor
-     - Time to Next Departure Sensor
-   - Rich attributes
-   - Device grouping
+9. **`sensor.py`**
+   - Next departure and time-to-next-departure sensors
+   - Rich attributes and device grouping
+
+10. **`binary_sensor.py`**
+   - Optional NS “Disruptions” sensor when `monitor_disruptions` is enabled
 
 ### Localization
 
-9. **`translations/en.json`** & **`translations/nl.json`**
+11. **`translations/en.json`** & **`translations/nl.json`**
    - UI text translations
    - Error messages
    - Configuration descriptions
 
-10. **`strings.json`**
+12. **`strings.json`**
     - UI strings with descriptions
     - Field explanations
 
 ## Features Summary
 
 ### RET Integration
-- ✅ Real-time metro/tram/bus departures
-- ✅ Uses free OVapi service
+- ✅ Metro/tram/bus departures from ret.nl timetable pages
 - ✅ Line filtering support
 - ✅ No API key required
-- ✅ Delay information
-- ✅ Platform information
+- ✅ Delay information (when present in page)
+- ✅ No dependency on third-party OVapi
 
 ### NS Integration
-- ✅ Real-time train departures
-- ✅ Official NS API
-- ✅ All Dutch stations
+- ✅ Train departures via NS Reisinformatie API
+- ✅ Optional active-disruption binary sensor
 - ✅ Cancellation detection
-- ✅ Delay information
-- ✅ Platform/track information
-- ✅ Train type and number
+- ✅ Delay and platform/track information
+- ✅ Train type and number where provided
 
 ### Technical Features
 - ✅ Async/await throughout
@@ -173,6 +175,7 @@ The integration includes comprehensive unit tests:
 ### Runtime
 - `aiohttp>=3.8.0` - Async HTTP client
 - `pytz>=2023.3` - Timezone handling
+- `beautifulsoup4>=4.12.0` - RET HTML parsing
 
 ### Testing
 - `pytest>=7.4.0` - Test framework
@@ -181,25 +184,23 @@ The integration includes comprehensive unit tests:
 
 ## API Information
 
-### RET (OVapi)
-- **Endpoint**: http://v0.ovapi.nl
-- **Authentication**: None required
-- **Rate Limit**: Be respectful (default: 30s interval)
-- **Format**: JSON
-- **Coverage**: Rotterdam region public transport
+### RET (ret.nl)
+- **Source**: `https://www.ret.nl/home/reizen/halte/{slug}.html`
+- **Authentication**: None
+- **Format**: HTML (scraped)
+- **Coverage**: RET halts exposed on the website
 
 ### NS (Dutch Railways)
-- **Endpoint**: https://gateway.apiportal.ns.nl/reisinformatie-api/api/v2
-- **Authentication**: API key via header (Ocp-Apim-Subscription-Key)
-- **Rate Limit**: Standard NS API limits
+- **Departures**: `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v2`
+- **Disruptions**: `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/disruptions` (same subscription key)
+- **Authentication**: API key via header (`Ocp-Apim-Subscription-Key`)
 - **Format**: JSON
-- **Coverage**: All Dutch NS stations
 
 ## Configuration Examples
 
 ### RET Stop Configuration
 ```yaml
-Stop ID: 31000539 (or NL:Q:31000539)
+Stop ID: beurs                    # slug from ret.nl halt URL
 Stop Name: Beurs Metro
 Line Filter: 2, 25, E (optional)
 ```
@@ -252,6 +253,5 @@ To contribute to this project:
 
 ---
 
-**Version**: 1.0.0  
-**Home Assistant**: 2024.1.0+  
+**Home Assistant**: 2024.1.0+ (see `manifest.json` for integration `version`)  
 **License**: MIT

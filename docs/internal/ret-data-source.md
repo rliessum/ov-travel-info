@@ -37,11 +37,7 @@ Complete rewrite of the client to scrape RET's website instead of using OVapi:
 - **requirements_test.txt**: Added beautifulsoup4 for testing
 
 ### 4. Testing
-Created `test_ret_scraping.py` to verify the implementation:
-- ✅ Successfully fetches departures from Schiekade stop
-- ✅ Line filtering works correctly
-- ✅ Stop validation functions properly
-- ✅ Invalid stops are handled with appropriate errors
+RET parsing and config flow are covered in `tests/test_api_ret.py` and `tests/test_config_flow.py`.
 
 ## Migration Notes
 
