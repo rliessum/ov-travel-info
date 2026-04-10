@@ -17,6 +17,8 @@ from custom_components.ret_ns_departures.const import (
     STOP_TYPE_RET,
 )
 
+pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
+
 
 @pytest.mark.asyncio
 async def test_form_user_step(hass: HomeAssistant):
@@ -67,7 +69,7 @@ async def test_form_ret_success(hass: HomeAssistant):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                CONF_STOP_ID: "31000539",
+                CONF_STOP_ID: "beurs",
                 CONF_STOP_NAME: "Beurs Metro",
             },
         )
@@ -75,7 +77,7 @@ async def test_form_ret_success(hass: HomeAssistant):
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["title"] == "RET Beurs Metro"
     assert result["data"][CONF_OPERATOR] == STOP_TYPE_RET
-    assert result["data"][CONF_STOP_ID] == "31000539"
+    assert result["data"][CONF_STOP_ID] == "beurs"
 
 
 @pytest.mark.asyncio

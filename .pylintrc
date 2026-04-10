@@ -14,6 +14,8 @@ disable =
     broad-exception-caught,
     no-else-return,
     redefined-outer-name,
+    missing-function-docstring,
+    protected-access,
 
 [FORMAT]
 max-line-length = 120
