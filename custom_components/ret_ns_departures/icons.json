@@ -1,0 +1,22 @@
+{
+  "entity": {
+    "sensor": {
+      "time_to_next_departure": {
+        "default": "mdi:clock-outline"
+      }
+    },
+    "image": {
+      "next_train_image": {
+        "default": "mdi:train-car"
+      }
+    },
+    "binary_sensor": {
+      "disruptions": {
+        "default": "mdi:check-circle",
+        "state": {
+          "on": "mdi:train-alert"
+        }
+      }
+    }
+  }
+}

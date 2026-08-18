@@ -1,0 +1,179 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Kies Vervoerder",
+        "description": "Selecteer de openbaar vervoer exploitant die u wilt volgen.",
+        "data": {
+          "operator": "Vervoerder"
+        }
+      },
+      "ret": {
+        "title": "RET Halte Configureren",
+        "description": "Configureer een RET (Rotterdam) metro-, tram- of bushalte.\n\nHalte ID voorbeeld: {stop_id_example}\nLijn filter voorbeeld (optioneel): {line_filter_example}",
+        "data": {
+          "stop_id": "Halte ID",
+          "stop_name": "Haltenaam",
+          "line_filter": "Lijn Filter (kommagescheiden, optioneel)"
+        }
+      },
+      "ns": {
+        "title": "NS-station zoeken",
+        "description": "Zoek een station op kaartlocatie (standaard uw Home Assistant-locatie) of op naam.\n\nAls u al een NS-station hebt, laat het API-sleutelveld leeg om die sleutel te hergebruiken. U kunt optioneel een andere sleutel invoeren.\n\nEerste station: haal een gratis sleutel op via {api_key_info}.",
+        "data": {
+          "ns_api_key": "NS API-sleutel",
+          "location": "Locatie",
+          "station_query": "Zoeken op naam of code (optioneel)"
+        }
+      },
+      "ns_select": {
+        "title": "Selecteer NS-station",
+        "description": "Kies een station. De officiële code en naam komen uit de NS Stations API.",
+        "data": {
+          "station": "Station",
+          "monitor_disruptions": "Monitor storingen en onderhoud"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met de API. Controleer uw internetverbinding en probeer het opnieuw.",
+      "invalid_stop": "Ongeldige halte ID. Controleer de halte ID en probeer het opnieuw.",
+      "invalid_station": "Ongeldige stationscode of API key. Controleer en probeer het opnieuw.",
+      "invalid_auth": "Ongeldige API-sleutel. Controleer de sleutel op https://apiportal.ns.nl en abonneer u op het Ns-App-product.",
+      "api_key_required": "Voer een NS API-sleutel in, of voeg eerst een NS-station toe zodat een bestaande sleutel kan worden hergebruikt.",
+      "no_stations_found": "Geen stations gevonden. Probeer een andere locatie of zoek op naam (bijvoorbeeld Rotterdam).",
+      "unknown": "Er is een onverwachte fout opgetreden."
+    },
+    "abort": {
+      "already_configured": "Deze halte/station is al geconfigureerd.",
+      "unknown_operator": "Onbekende vervoerder geselecteerd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opties Configureren",
+        "description": "Configureer update interval en vertrek weergave opties.",
+        "data": {
+          "max_departures": "Maximum aantal vertrektijden om te tonen",
+          "line_filter": "Lijn Filter (kommagescheiden, optioneel)",
+          "monitor_disruptions": "Monitor storingen en onderhoud (alleen NS)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "operator": {
+      "options": {
+        "ret": "RET (Rotterdam Metro/Tram/Bus)",
+        "ns": "NS (Nederlandse Spoorwegen)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next_departure": {
+        "name": "Volgende vertrek",
+        "state_attributes": {
+          "message": {
+            "name": "Wat is er aan de hand"
+          },
+          "replacement_stops": {
+            "name": "Vervangende halte"
+          },
+          "source_url": {
+            "name": "Dienstregeling"
+          },
+          "period": {
+            "name": "Periode"
+          }
+        }
+      },
+      "time_to_next_departure": {
+        "name": "Tijd tot volgende vertrek",
+        "state_attributes": {
+          "message": {
+            "name": "Wat is er aan de hand"
+          },
+          "replacement_stops": {
+            "name": "Vervangende halte"
+          },
+          "source_url": {
+            "name": "Dienstregeling"
+          }
+        }
+      }
+    },
+    "image": {
+      "next_train_image": {
+        "name": "Volgende trein"
+      }
+    },
+    "binary_sensor": {
+      "disruptions": {
+        "name": "Storingen",
+        "state_attributes": {
+          "message": {
+            "name": "Wat is er aan de hand"
+          },
+          "title": {
+            "name": "Traject"
+          },
+          "cause": {
+            "name": "Oorzaak"
+          },
+          "situation": {
+            "name": "Situatie"
+          },
+          "additional_travel_time": {
+            "name": "Extra reistijd"
+          },
+          "expected_duration": {
+            "name": "Verwachte duur"
+          },
+          "period": {
+            "name": "Periode"
+          },
+          "phase": {
+            "name": "Fase"
+          },
+          "disruption_type": {
+            "name": "Type",
+            "state": {
+              "DISRUPTION": "Storing",
+              "MAINTENANCE": "Werkzaamheden",
+              "CALAMITY": "Calamiteit",
+              "STORING": "Storing",
+              "WERKZAAMHEID": "Werkzaamheden"
+            }
+          },
+          "level": {
+            "name": "Gevolg",
+            "state": {
+              "MINDER_TREINEN": "Minder treinen",
+              "GEEN_TREINEN": "Geen treinen",
+              "STATION_GESLOTEN": "Station gesloten",
+              "OMREIZEN": "Reis via een andere route",
+              "VERTRAGING": "Vertraging"
+            }
+          },
+          "stations": {
+            "name": "Betrokken stations"
+          },
+          "count": {
+            "name": "Actieve storingen"
+          },
+          "other_disruptions": {
+            "name": "Andere storingen"
+          },
+          "replacement_stops": {
+            "name": "Vervangende halte"
+          },
+          "source_url": {
+            "name": "Dienstregeling"
+          }
+        }
+      }
+    }
+  }
+}

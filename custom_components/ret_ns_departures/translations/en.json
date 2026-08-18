@@ -1,0 +1,179 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose Transport Operator",
+        "description": "Select the public transport operator you want to monitor.",
+        "data": {
+          "operator": "Operator"
+        }
+      },
+      "ret": {
+        "title": "Configure RET Stop",
+        "description": "Configure a RET (Rotterdam) metro, tram, or bus stop.\n\nStop ID example: {stop_id_example}\nLine filter example (optional): {line_filter_example}",
+        "data": {
+          "stop_id": "Stop ID",
+          "stop_name": "Stop Name",
+          "line_filter": "Line Filter (comma-separated, optional)"
+        }
+      },
+      "ns": {
+        "title": "Find NS Station",
+        "description": "Find a station by map location (defaults to your Home Assistant home) or by name.\n\nIf you already have an NS station, leave the API key empty to reuse that key. You can optionally enter a different key.\n\nFirst station: get a free key from {api_key_info}.",
+        "data": {
+          "ns_api_key": "NS API Key",
+          "location": "Location",
+          "station_query": "Search by name or code (optional)"
+        }
+      },
+      "ns_select": {
+        "title": "Select NS Station",
+        "description": "Choose a station. The official code and name come from the NS Stations API.",
+        "data": {
+          "station": "Station",
+          "monitor_disruptions": "Monitor disruptions and maintenance"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the API. Please check your internet connection and try again.",
+      "invalid_stop": "Invalid stop ID. Please verify the stop ID and try again.",
+      "invalid_station": "Invalid station code or API key. Please verify and try again.",
+      "invalid_auth": "Invalid API key. Check your key at https://apiportal.ns.nl and subscribe to the Ns-App product.",
+      "api_key_required": "Enter an NS API key, or add an NS station first so an existing key can be reused.",
+      "no_stations_found": "No stations found. Try another location or search by name (for example Rotterdam).",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This stop/station is already configured.",
+      "unknown_operator": "Unknown operator selected."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Options",
+        "description": "Configure update interval and departure display options.",
+        "data": {
+          "max_departures": "Maximum number of departures to show",
+          "line_filter": "Line Filter (comma-separated, optional)",
+          "monitor_disruptions": "Monitor disruptions and maintenance (NS only)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "operator": {
+      "options": {
+        "ret": "RET (Rotterdam Metro/Tram/Bus)",
+        "ns": "NS (Dutch Railways)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next_departure": {
+        "name": "Next departure",
+        "state_attributes": {
+          "message": {
+            "name": "What's wrong"
+          },
+          "replacement_stops": {
+            "name": "Replacement stop"
+          },
+          "source_url": {
+            "name": "Timetable"
+          },
+          "period": {
+            "name": "Period"
+          }
+        }
+      },
+      "time_to_next_departure": {
+        "name": "Time to next departure",
+        "state_attributes": {
+          "message": {
+            "name": "What's wrong"
+          },
+          "replacement_stops": {
+            "name": "Replacement stop"
+          },
+          "source_url": {
+            "name": "Timetable"
+          }
+        }
+      }
+    },
+    "image": {
+      "next_train_image": {
+        "name": "Next train"
+      }
+    },
+    "binary_sensor": {
+      "disruptions": {
+        "name": "Disruptions",
+        "state_attributes": {
+          "message": {
+            "name": "What's wrong"
+          },
+          "title": {
+            "name": "Affected route"
+          },
+          "cause": {
+            "name": "Cause"
+          },
+          "situation": {
+            "name": "Situation"
+          },
+          "additional_travel_time": {
+            "name": "Extra travel time"
+          },
+          "expected_duration": {
+            "name": "Expected duration"
+          },
+          "period": {
+            "name": "Period"
+          },
+          "phase": {
+            "name": "Phase"
+          },
+          "disruption_type": {
+            "name": "Type",
+            "state": {
+              "DISRUPTION": "Disruption",
+              "MAINTENANCE": "Maintenance",
+              "CALAMITY": "Calamity",
+              "STORING": "Disruption",
+              "WERKZAAMHEID": "Maintenance"
+            }
+          },
+          "level": {
+            "name": "Impact",
+            "state": {
+              "MINDER_TREINEN": "Fewer trains",
+              "GEEN_TREINEN": "No trains",
+              "STATION_GESLOTEN": "Station closed",
+              "OMREIZEN": "Travel via another route",
+              "VERTRAGING": "Delay"
+            }
+          },
+          "stations": {
+            "name": "Affected stations"
+          },
+          "count": {
+            "name": "Active disruptions"
+          },
+          "other_disruptions": {
+            "name": "Other disruptions"
+          },
+          "replacement_stops": {
+            "name": "Replacement stop"
+          },
+          "source_url": {
+            "name": "Timetable"
+          }
+        }
+      }
+    }
+  }
+}
