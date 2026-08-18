@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
 import re
@@ -59,6 +60,15 @@ def _is_inactive_halt(html_content: str) -> bool:
     return _INACTIVE_NOTICE in notice.get_text(" ", strip=True).lower()
 
 
+@dataclass
+class _LastHalt:
+    """Cached title and serving lines from the last halt page."""
+
+    name: str = ""
+    lines: list[str] = field(default_factory=list)
+    line_urls: dict[str, str] = field(default_factory=dict)
+
+
 class RETAPIClient:
     """Client for interacting with RET website for departures."""
 
@@ -68,9 +78,7 @@ class RETAPIClient:
         self._base_url = RET_BASE_URL
         self._tz = ZoneInfo(TIMEZONE)
         self._resolved_slugs: dict[str, str] = {}
-        self._last_halt_name = ""
-        self._last_halt_lines: list[str] = []
-        self._last_halt_line_urls: dict[str, str] = {}
+        self._last_halt = _LastHalt()
         self._diversions_cache: tuple[float, list[dict[str, Any]]] | None = None
 
     def resolved_stop_id(self, stop_id: str) -> str | None:
@@ -160,9 +168,11 @@ class RETAPIClient:
 
     def _remember_halt(self, html: str) -> None:
         """Keep halt title and serving lines from the last successful page."""
-        self._last_halt_name = extract_halt_name(html)
-        self._last_halt_lines = extract_halt_lines(html)
-        self._last_halt_line_urls = extract_dienstregeling_urls(html)
+        self._last_halt = _LastHalt(
+            name=extract_halt_name(html),
+            lines=extract_halt_lines(html),
+            line_urls=extract_dienstregeling_urls(html),
+        )
 
     async def async_get_service_notice(
         self,
@@ -172,15 +182,15 @@ class RETAPIClient:
     ) -> dict[str, Any] | None:
         """Return a RET omleiding that explains why this halt has no times."""
         slug = self.resolved_stop_id(stop_id) or _normalize_stop_id(stop_id)
-        halt_name = stop_name or self._last_halt_name or slug.replace("-", " ")
-        lines = line_filter or self._last_halt_lines
+        halt_name = stop_name or self._last_halt.name or slug.replace("-", " ")
+        lines = line_filter or self._last_halt.lines
         notices = await self.async_get_diversions()
         return match_stop_notice(
             notices,
             stop_name=halt_name,
             stop_slug=slug,
             lines=lines,
-            line_urls=self._last_halt_line_urls,
+            line_urls=self._last_halt.line_urls,
         )
 
     async def async_get_diversions(self) -> list[dict[str, Any]]:

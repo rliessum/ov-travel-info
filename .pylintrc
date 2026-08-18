@@ -16,6 +16,7 @@ disable =
     redefined-outer-name,
     missing-function-docstring,
     protected-access,
+    abstract-method,
 
 [FORMAT]
 max-line-length = 120

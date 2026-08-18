@@ -172,7 +172,7 @@ class NSAPIClient:
             return True
         except ClientError as err:
             # 404 or 400 means invalid station
-            if hasattr(err, 'status') and err.status in (400, 404):
+            if getattr(err, "status", None) in (400, 404):
                 return False
             # Other errors - assume station might be valid
             return True
