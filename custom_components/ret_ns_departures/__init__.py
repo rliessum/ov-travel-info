@@ -1,14 +1,10 @@
 """The RET & NS Departures integration."""
 from __future__ import annotations
 
-import logging
-
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .coordinator import DeparturesCoordinator, RETNSConfigEntry
-
-_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.IMAGE]
 

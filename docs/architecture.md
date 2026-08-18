@@ -16,12 +16,14 @@ ov-travel-info/
 │       ├── sensor.py                   # Departure sensor entities
 │       ├── binary_sensor.py            # NS disruption binary sensor (optional)
 │       ├── api_ret.py                  # RET client (ret.nl HTML)
+│       ├── api_ret_diversions.py       # RET omleidingen parse/match
 │       ├── api_ns.py                   # NS departures API client
 │       ├── api_disruptions.py          # NS disruptions API client
 │       ├── api_virtual_train.py        # NS Virtual Train getImage client
 │       ├── api_spoorkaart.py           # NS Spoorkaart getStoring client
 │       ├── disruption_info.py          # Readable disruption titles and summaries
 │       ├── image.py                    # Next-train image entity
+│       ├── icons.json                  # State icons
 │       ├── brand/                      # HACS / HA icon and logo (OV-chipkaart mark)
 │       ├── translations/
 │       │   ├── en.json                 # English translations
@@ -33,8 +35,10 @@ ov-travel-info/
 ├── tests/
 │   ├── conftest.py                     # Pytest configuration
 │   ├── test_api_ret.py                 # RET client tests
+│   ├── test_api_ret_diversions.py      # RET omleidingen matching
 │   ├── test_api_ns.py                  # NS API tests
-│   └── test_config_flow.py             # Config flow tests
+│   ├── test_config_flow.py             # Config flow tests
+│   └── …                               # coordinator, sensor, binary_sensor, others
 ├── README.md                           # Repository entry point
 ├── LICENSE                             # MIT License
 ├── CHANGELOG.md                        # Version history
@@ -53,12 +57,12 @@ ov-travel-info/
    - Integration entry point
    - Handles setup and unload of config entries
    - Creates coordinator instance
-   - Forwards setup to sensor and binary_sensor platforms
+   - Forwards setup to sensor, binary_sensor, and image platforms
 
 2. **`manifest.json`**
    - Integration metadata
    - Domain, name, version
-   - Dependencies (aiohttp, pytz, beautifulsoup4)
+   - Dependencies (`beautifulsoup4`; aiohttp ships with Home Assistant)
    - Documentation links
 
 3. **`const.py`**
@@ -109,7 +113,8 @@ ov-travel-info/
    - Rich attributes and device grouping
 
 10. **`binary_sensor.py`**
-   - Optional NS “Disruptions” sensor when `monitor_disruptions` is enabled
+   - NS “Disruptions” sensor when `monitor_disruptions` is enabled
+   - RET service-notice sensor (omleidingen when the halt board is empty)
 
 ### Localization
 
@@ -192,9 +197,8 @@ The integration includes comprehensive unit tests:
 ## Dependencies
 
 ### Runtime
-- `aiohttp>=3.8.0` - Async HTTP client
-- `pytz>=2023.3` - Timezone handling
 - `beautifulsoup4>=4.12.0` - RET HTML parsing
+- `aiohttp` - shipped with Home Assistant
 
 ### Testing
 - `pytest>=7.4.0` - Test framework
@@ -277,5 +281,5 @@ To contribute to this project:
 
 ---
 
-**Home Assistant**: 2024.1.0+ (see `manifest.json` for integration `version`)  
+**Home Assistant**: 2024.11.0+ (`hacs.json`)
 **License**: MIT

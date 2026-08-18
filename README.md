@@ -30,7 +30,7 @@ A Home Assistant custom integration for real-time public transport departures in
 
 ## Requirements
 
-- Home Assistant 2024.1.0 or newer
+- Home Assistant 2024.11.0 or newer
 - **NS**: Free API key from [NS API Portal](https://apiportal.ns.nl) (Ns-App product: Reisinformatie + Stations)
 - **RET**: No API key; use the halt **slug** from the ret.nl URL (see [docs/installation.md](docs/installation.md))
 

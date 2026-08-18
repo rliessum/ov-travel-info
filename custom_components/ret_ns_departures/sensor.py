@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import logging
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -46,8 +45,6 @@ from .disruption_info import (
     primary_disruption,
     sort_disruptions,
 )
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(

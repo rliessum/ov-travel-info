@@ -53,7 +53,7 @@
     "step": {
       "init": {
         "title": "Opties Configureren",
-        "description": "Configureer update interval en vertrek weergave opties.",
+        "description": "Configureer vertrekweergave-opties.",
         "data": {
           "max_departures": "Maximum aantal vertrektijden om te tonen",
           "line_filter": "Lijn Filter (kommagescheiden, optioneel)",

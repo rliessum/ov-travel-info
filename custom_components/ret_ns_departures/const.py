@@ -6,7 +6,6 @@ from typing import Final
 DOMAIN: Final = "ret_ns_departures"
 
 # Config flow
-CONF_STOP_TYPE: Final = "stop_type"
 CONF_STOP_ID: Final = "stop_id"
 CONF_STOP_NAME: Final = "stop_name"
 CONF_LINE_FILTER: Final = "line_filter"
@@ -32,7 +31,6 @@ OPERATOR_NS: Final = "NS"
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=30)
 DEFAULT_MAX_DEPARTURES: Final = 5
 DEFAULT_STATION_RESULTS: Final = 20
-MIN_SCAN_INTERVAL: Final = timedelta(seconds=15)
 MIN_STATION_QUERY_LENGTH: Final = 2
 
 # API endpoints
@@ -73,7 +71,6 @@ ATTR_STOP_NAME: Final = "stop_name"
 ATTR_TRAIN_TYPE: Final = "train_type"
 ATTR_TRIP_NUMBER: Final = "trip_number"
 ATTR_DESCRIPTION: Final = "description"
-ATTR_TRAIN_IMAGE: Final = "train_image"
 
 # Disruption attributes
 ATTR_DISRUPTIONS: Final = "disruptions"

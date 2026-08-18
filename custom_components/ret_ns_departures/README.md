@@ -267,7 +267,7 @@ automation:
 
 RET data is loaded from the public halt timetable pages on [ret.nl](https://www.ret.nl). No API key is required.
 
-**Polling**: Default 30 seconds (minimum 15). Scraping may break if RET changes page markup—open an issue if that happens.
+**Polling**: Every 30 seconds. Scraping may break if RET changes page markup—open an issue if that happens.
 
 ### NS (Dutch Railways)
 

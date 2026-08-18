@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import logging
 from typing import Any
 
 from homeassistant.components.image import ImageEntity
@@ -13,8 +12,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_OPERATOR, CONF_STATION_NAME, DOMAIN, STOP_TYPE_NS
 from .coordinator import DeparturesCoordinator, RETNSConfigEntry
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(

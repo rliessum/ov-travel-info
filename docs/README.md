@@ -21,5 +21,5 @@ All user and maintainer documentation for **RET & NS Departures** lives here. Th
 - **NS departures**: NS Reisinformatie API v2; disruptions use the v3 path configured in `const.py`.
 - **NS disruption map**: Spoorkaart `getStoring` attaches GeoJSON centroids to monitored disruptions.
 - **NS station lookup**: NS App Stations API v2 (`/nearest` and `?q=`) during config flow; falls back to Reisinformatie `/stations`.
-- **Entities**: Each entry creates two departure sensors; NS entries may add a **Disruptions** binary sensor when the option is enabled.
-- **Tests**: `tests/test_api_ret.py`, `test_api_ns.py`, `test_config_flow.py` — no separate `test_ret_scraping.py` in tree.
+- **Entities**: Each entry creates two departure sensors. NS stations can add a **Disruptions** binary sensor and a **Next train** image. RET stops always get a **Disruptions** sensor for omleidingen when the board is empty.
+- **Tests**: `tests/test_api_*.py`, `test_config_flow.py`, `test_coordinator.py`, `test_sensor.py`, `test_binary_sensor.py`.

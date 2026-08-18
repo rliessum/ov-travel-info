@@ -53,7 +53,7 @@
     "step": {
       "init": {
         "title": "Configure Options",
-        "description": "Configure update interval and departure display options.",
+        "description": "Configure departure display options.",
         "data": {
           "max_departures": "Maximum number of departures to show",
           "line_filter": "Line Filter (comma-separated, optional)",

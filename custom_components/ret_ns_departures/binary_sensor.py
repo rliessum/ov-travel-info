@@ -1,7 +1,6 @@
-"""Binary sensor platform for NS Disruptions."""
+"""Binary sensor platform for NS and RET service notices."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -42,8 +41,6 @@ from .const import (
 )
 from .coordinator import DeparturesCoordinator, RETNSConfigEntry
 from .disruption_info import disruption_name, primary_display_attributes
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(

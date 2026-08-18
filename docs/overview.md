@@ -6,7 +6,7 @@ This document provides a visual overview of what the RET & NS Departures integra
 
 ## Entities Created
 
-For each configured stop or station, the integration creates **two departure sensors**. For **NS** entries, you can optionally enable a **third entity** (binary sensor) for disruptions; see [features/ns-disruptions.md](features/ns-disruptions.md).
+For each configured stop or station, the integration creates **two departure sensors**. **NS** entries can add a disruptions binary sensor and a next-train image; **RET** entries get a disruptions sensor for omleidingen when the board is empty. See [features/ns-disruptions.md](features/ns-disruptions.md).
 
 ### 1. Next Departure Sensor
 

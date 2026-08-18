@@ -4,7 +4,7 @@
 
 Before installing this integration, ensure you have:
 
-1. **Home Assistant** 2024.1.0 or newer
+1. **Home Assistant** 2024.11.0 or newer
 2. **For NS departures**: A free API key from [NS API Portal](https://apiportal.ns.nl)
    - Create an account at https://apiportal.ns.nl
    - Subscribe to the **Ns-App** product (Reisinformatie + Stations API; it's free)

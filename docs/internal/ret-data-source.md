@@ -66,8 +66,6 @@ Users will need to update their stop IDs to use the friendly names that appear i
 2. **Fragility**: Changes to RET's website HTML structure could break the integration
 3. **Rate Limiting**: Need to be mindful of request frequency to avoid being blocked
 
-## Next Steps
-- Update configuration flow to use new stop name format
-- Add better error messages for invalid stop names
-- Consider caching mechanisms to reduce website requests
-- Update documentation with new stop ID format examples
+## Current extras
+- Dead slugs such as `centraal-station` are resolved to a live halt (`rotterdam-centraal`) or via RET halte search.
+- Empty boards are explained from [omleidingen](https://www.ret.nl/home/reizen/omleidingen-verstoringen.html), cached for 15 minutes.
