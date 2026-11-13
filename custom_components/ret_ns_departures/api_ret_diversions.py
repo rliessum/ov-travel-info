@@ -126,9 +126,14 @@ def format_stop_notice(
     }
 
 
-def extract_halt_lines(html: str) -> list[str]:
+def _as_soup(page: str | BeautifulSoup) -> BeautifulSoup:
+    """Parse HTML text, or pass an already parsed page through."""
+    return page if isinstance(page, BeautifulSoup) else BeautifulSoup(page, "html.parser")
+
+
+def extract_halt_lines(html: str | BeautifulSoup) -> list[str]:
     """Line numbers linked from the halt page line overview."""
-    soup = BeautifulSoup(html, "html.parser")
+    soup = _as_soup(html)
     lines: list[str] = []
     seen: set[str] = set()
     for anchor in soup.select('a.line-number[href*="/dienstregeling/"]'):
@@ -139,16 +144,16 @@ def extract_halt_lines(html: str) -> list[str]:
     return lines
 
 
-def extract_halt_name(html: str) -> str:
+def extract_halt_name(html: str | BeautifulSoup) -> str:
     """Visible halt title from the page header."""
-    soup = BeautifulSoup(html, "html.parser")
+    soup = _as_soup(html)
     heading = soup.select_one("h1.text--white") or soup.find("h1")
     return heading.get_text(strip=True) if heading else ""
 
 
-def extract_dienstregeling_urls(html: str) -> dict[str, str]:
+def extract_dienstregeling_urls(html: str | BeautifulSoup) -> dict[str, str]:
     """Map line number to its dienstregeling path on the halt page."""
-    soup = BeautifulSoup(html, "html.parser")
+    soup = _as_soup(html)
     urls: dict[str, str] = {}
     for anchor in soup.select('a.line-number[href*="/dienstregeling/"]'):
         line = anchor.get_text(strip=True)

@@ -43,7 +43,7 @@ _HALTE_SLUG_RE = re.compile(
 _VALID_SLUG_RE = re.compile(r"[a-z0-9-]+")
 _INACTIVE_NOTICE = "niet gereden"
 # Class fragments that a ret.nl halt page carries around its departure board.
-_BOARD_MARKERS = ("busline__display", "timetable__", "favorite__")
+_BOARD_MARKER_RE = re.compile(r"busline__display|timetable__|favorite__")
 
 
 class RETMarkupError(Exception):
@@ -61,9 +61,13 @@ def _slug_from_halte_url(url: str) -> str | None:
     return match.group(1).lower() if match else None
 
 
-def _is_inactive_halt(html_content: str) -> bool:
+async def _async_parse_html(html_content: str) -> BeautifulSoup:
+    """Parse a halt page once, off the event loop."""
+    return await asyncio.to_thread(BeautifulSoup, html_content, "html.parser")
+
+
+def _is_inactive_halt(soup: BeautifulSoup) -> bool:
     """Return True when RET says this halt page is not in service."""
-    soup = BeautifulSoup(html_content, "html.parser")
     notice = soup.select_one(".timetable__notice__content")
     if notice is None:
         return False
@@ -119,11 +123,9 @@ class RETAPIClient:
                 _LOGGER.debug("No usable RET halt page for stop %s", stop_id)
                 return []
 
-            slug, html_content = loaded
+            slug, page = loaded
             _LOGGER.debug("Received RET HTML page for %s, parsing departures", slug)
-            return await self._parse_departures(
-                html_content, max_results, line_filter
-            )
+            return self._parse_departures(page, max_results, line_filter)
 
         except asyncio.TimeoutError:
             _LOGGER.warning("Timeout fetching RET departures for stop %s", stop_id)
@@ -135,32 +137,34 @@ class RETAPIClient:
             _LOGGER.error("Unexpected error fetching RET departures: %s", err)
             raise
 
-    async def _async_load_halt_page(self, stop_id: str) -> tuple[str, str] | None:
-        """Return ``(slug, html)`` for the halt that currently has a board."""
+    async def _async_load_halt_page(
+        self, stop_id: str
+    ) -> tuple[str, BeautifulSoup] | None:
+        """Return ``(slug, parsed page)`` for the halt that currently has a board."""
         requested = _normalize_stop_id(stop_id)
         if not _VALID_SLUG_RE.fullmatch(requested):
             return None
         if requested in self._resolved_slugs:
             slug = self._resolved_slugs[requested]
-            html = await self._async_fetch_halt_html(slug)
-            if html is not None and not _is_inactive_halt(html):
-                self._remember_halt(html)
-                return slug, html
+            page = await self._async_fetch_halt_page(slug)
+            if page is not None and not _is_inactive_halt(page):
+                self._remember_halt(page)
+                return slug, page
             self._resolved_slugs.pop(requested, None)
 
         tried: set[str] = set()
         for slug in self._candidate_slugs(requested):
             tried.add(slug)
-            html = await self._async_fetch_halt_html(slug)
-            if html is None or _is_inactive_halt(html):
-                if html is not None:
+            page = await self._async_fetch_halt_page(slug)
+            if page is None or _is_inactive_halt(page):
+                if page is not None:
                     _LOGGER.debug("RET halt %s is marked out of service", slug)
                 continue
             self._resolved_slugs[requested] = slug
-            self._remember_halt(html)
+            self._remember_halt(page)
             if slug != requested:
                 _LOGGER.info("RET halt %s resolved to %s", requested, slug)
-            return slug, html
+            return slug, page
 
         if monotonic() < self._search_retry_at.get(requested, 0.0):
             return None
@@ -170,19 +174,19 @@ class RETAPIClient:
             if found in tried:
                 continue
             tried.add(found)
-            html = await self._async_fetch_halt_html(found)
-            if html is None or _is_inactive_halt(html):
+            page = await self._async_fetch_halt_page(found)
+            if page is None or _is_inactive_halt(page):
                 continue
             try:
-                departures = await self._parse_departures(html, max_results=1)
+                departures = self._parse_departures(page, max_results=1)
             except RETMarkupError:
                 continue
             if not departures:
                 continue
             self._resolved_slugs[requested] = found
-            self._remember_halt(html)
+            self._remember_halt(page)
             _LOGGER.info("RET halt %s resolved to %s via search", requested, found)
-            return found, html
+            return found, page
 
         self._search_retry_at[requested] = monotonic() + RET_SEARCH_RETRY_SECONDS
         _LOGGER.warning(
@@ -192,7 +196,7 @@ class RETAPIClient:
         )
         return None
 
-    def _remember_halt(self, html: str) -> None:
+    def _remember_halt(self, html: BeautifulSoup) -> None:
         """Keep halt title and serving lines from the last successful page."""
         self._last_halt = _LastHalt(
             name=extract_halt_name(html),
@@ -243,6 +247,11 @@ class RETAPIClient:
             if alias not in candidates:
                 candidates.append(alias)
         return candidates
+
+    async def _async_fetch_halt_page(self, slug: str) -> BeautifulSoup | None:
+        """Fetch a halt page and parse it once. 404 returns None."""
+        html = await self._async_fetch_halt_html(slug)
+        return None if html is None else await _async_parse_html(html)
 
     async def _async_fetch_halt_html(self, slug: str) -> str | None:
         """Fetch a halt page. 404 returns None; other HTTP errors raise."""
@@ -297,24 +306,19 @@ class RETAPIClient:
                     found.append(slug)
         return found
 
-    async def _parse_departures(
+    def _parse_departures(
         self,
-        html_content: str,
+        soup: BeautifulSoup,
         max_results: int,
         line_filter: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Parse HTML content and extract departure information."""
+        """Extract departure information from a parsed halt page."""
         departures = []
 
         try:
-            # Parse HTML with BeautifulSoup
-            soup = BeautifulSoup(html_content, 'html.parser')
-
             # Find all departure rows
             departure_rows = soup.find_all('a', class_='modal__toggle--generated')
-            if not departure_rows and not any(
-                marker in html_content for marker in _BOARD_MARKERS
-            ):
+            if not departure_rows and soup.find(class_=_BOARD_MARKER_RE) is None:
                 raise RETMarkupError(
                     "ret.nl halt page has no departure board; the page layout "
                     "may have changed"

@@ -23,6 +23,7 @@ ov-travel-info/
 │       ├── api_spoorkaart.py           # NS Spoorkaart getStoring client
 │       ├── disruption_info.py          # Readable disruption titles and summaries
 │       ├── image.py                    # Next-train image entity
+│       ├── diagnostics.py              # Diagnostics download (key redacted)
 │       ├── icons.json                  # State icons
 │       ├── brand/                      # HACS / HA icon and logo (OV-chipkaart mark)
 │       ├── translations/

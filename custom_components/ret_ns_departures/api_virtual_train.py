@@ -30,6 +30,7 @@ class NSVirtualTrainClient:
             tuple[tuple[str, str | None, str | None], dict[str, Any], float] | None
         ) = None
         self._failed: tuple[tuple[str, str | None, str | None], float] | None = None
+        self._route = 0
 
     def _headers(self) -> dict[str, str]:
         """Return subscription-key headers."""
@@ -95,15 +96,18 @@ class NSVirtualTrainClient:
             (f"{NS_VIRTUAL_TRAIN_API_BASE_URL}/trein/{rit}/image", params),
         ]
 
-        for url, query in candidates:
+        if station:
+            candidates.append(
+                (f"{NS_VIRTUAL_TRAIN_API_BASE_URL}/trein/{rit}/{station}", params)
+            )
+
+        # Start with the route that answered last time, then try the others.
+        order = sorted(range(len(candidates)), key=lambda index: index != self._route)
+        for index in order:
+            url, query = candidates[index]
             result = await self._async_try_image_url(url, query)
             if result:
-                return result
-
-        if station:
-            details_url = f"{NS_VIRTUAL_TRAIN_API_BASE_URL}/trein/{rit}/{station}"
-            result = await self._async_try_image_url(details_url, params)
-            if result:
+                self._route = index
                 return result
 
         return None

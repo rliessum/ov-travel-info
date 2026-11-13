@@ -212,3 +212,27 @@ async def test_get_image_keeps_old_result_when_refresh_fails(
     result = await vt_client.async_get_image("2834", station="Rtd")
 
     assert result["bytes"] == b"train"
+
+
+async def test_get_image_starts_with_the_route_that_worked(vt_client, mock_session):
+    """After a fallback route answers, the next train tries that route first."""
+    not_found = MagicMock()
+    not_found.status = 404
+    png = mock_aiohttp_response()
+    png.content_type = "image/png"
+    set_body(png, b"img")
+
+    def _get(url, **_kwargs):
+        response = png if url.endswith("/trein/image") else not_found
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(return_value=response)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    mock_session.get.side_effect = _get
+
+    await vt_client.async_get_image("500")
+    assert mock_session.get.call_count == 2
+
+    await vt_client.async_get_image("502")
+    assert mock_session.get.call_count == 3

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import ClientError
+from bs4 import BeautifulSoup
 from freezegun import freeze_time
 
 from custom_components.ret_ns_departures.api_ret import RETAPIClient, RETMarkupError
@@ -342,3 +343,19 @@ async def test_unresolvable_stop_is_not_searched_again_on_the_next_poll(ret_clie
         assert await ret_client.async_get_departures("ghost-stop") == []
 
     assert search.call_count == 1
+
+
+@freeze_time("2024-11-16 12:00:00+01:00")
+async def test_halt_page_is_parsed_once_per_poll(ret_client, mock_session):
+    """One poll parses the halt page a single time."""
+    html = _ret_page(_ret_departure_row("Tram 8", "Nesselande", "12:10", minutes="10"))
+    attach_get_with_response(mock_session, mock_aiohttp_response(text=html))
+
+    with patch(
+        "custom_components.ret_ns_departures.api_ret.BeautifulSoup",
+        wraps=BeautifulSoup,
+    ) as parser:
+        departures = await ret_client.async_get_departures("beurs")
+
+    assert len(departures) == 1
+    assert parser.call_count == 1
