@@ -180,3 +180,16 @@ def test_next_departure_entity_picture_from_virtual_train():
     assert attrs["train_image"] == "https://example.test/train.png"
     assert attrs["rolling_stock"] == "VIRM"
     assert attrs["train_length"] == 6
+
+
+def test_entity_ids_do_not_follow_the_displayed_name():
+    """New installs get the documented entity IDs whatever train is next."""
+    next_sensor, time_sensor = _make_sensors(
+        [_departure(10, destination="Amsterdam Centraal")]
+    )
+
+    assert next_sensor.name == "IC 2834 to Amsterdam Centraal"
+    assert next_sensor.entity_id == "sensor.ns_rotterdam_centraal_next_departure"
+    assert (
+        time_sensor.entity_id == "sensor.ns_rotterdam_centraal_time_to_next_departure"
+    )

@@ -2,13 +2,17 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from custom_components.ret_ns_departures import api_virtual_train
 from custom_components.ret_ns_departures.api_virtual_train import (
     NSVirtualTrainClient,
     image_from_virtual_train_payload,
 )
-from custom_components.ret_ns_departures.const import NS_VIRTUAL_TRAIN_API_BASE_URL
+from custom_components.ret_ns_departures.const import (
+    MAX_TRAIN_IMAGE_BYTES,
+    NS_VIRTUAL_TRAIN_API_BASE_URL,
+)
 
-from tests.helpers import attach_get_with_response, mock_aiohttp_response
+from tests.helpers import attach_get_with_response, mock_aiohttp_response, set_body
 
 
 @pytest.fixture
@@ -55,7 +59,7 @@ def test_image_from_payload_materieeldelen():
 async def test_get_image_returns_png_bytes(vt_client, mock_session):
     response = mock_aiohttp_response()
     response.content_type = "image/png"
-    response.read = AsyncMock(return_value=b"\x89PNG")
+    set_body(response, b"\x89PNG")
     attach_get_with_response(mock_session, response)
 
     result = await vt_client.async_get_image("2834", station="Rtd", date="2024-11-16")
@@ -72,7 +76,7 @@ async def test_get_image_returns_png_bytes(vt_client, mock_session):
 async def test_get_image_falls_back_after_404(vt_client, mock_session):
     png = mock_aiohttp_response()
     png.content_type = "image/svg+xml"
-    png.read = AsyncMock(return_value=b"<svg/>")
+    set_body(png, b"<svg/>")
     not_found = MagicMock()
     not_found.status = 404
     not_found.content_type = "application/json"
@@ -110,7 +114,7 @@ async def test_get_image_parses_json_and_downloads_url(vt_client, mock_session):
     png = mock_aiohttp_response()
     png.status = 200
     png.content_type = "image/png"
-    png.read = AsyncMock(return_value=b"img")
+    set_body(png, b"img")
     json_cm = MagicMock()
     json_cm.__aenter__ = AsyncMock(return_value=json_response)
     json_cm.__aexit__ = AsyncMock(return_value=False)
@@ -125,3 +129,86 @@ async def test_get_image_parses_json_and_downloads_url(vt_client, mock_session):
     assert result["bytes"] == b"img"
     assert result["url"] == "https://vt.example/car.png"
     assert result["composition"]["type"] == "VIRM"
+
+
+async def test_get_image_reuses_result_for_same_service(vt_client, mock_session):
+    """The same train is fetched once, and a different train is fetched again."""
+    response = mock_aiohttp_response()
+    response.content_type = "image/png"
+    set_body(response, b"\x89PNG")
+    attach_get_with_response(mock_session, response)
+
+    first = await vt_client.async_get_image("2834", station="Rtd", date="2024-11-16")
+    second = await vt_client.async_get_image("2834", station="Rtd", date="2024-11-16")
+
+    assert second["bytes"] == b"\x89PNG"
+    assert second["fetched_at"] == first["fetched_at"]
+    assert mock_session.get.call_count == 1
+
+    await vt_client.async_get_image("2836", station="Rtd", date="2024-11-16")
+    assert mock_session.get.call_count == 2
+
+
+async def test_get_image_rejects_oversized_body(vt_client, mock_session):
+    """An image larger than the cap is dropped."""
+    response = mock_aiohttp_response()
+    response.content_type = "image/png"
+    response.content_length = MAX_TRAIN_IMAGE_BYTES + 1
+    set_body(response, b"\x89PNG")
+    attach_get_with_response(mock_session, response)
+
+    assert await vt_client.async_get_image("2834", station="Rtd") is None
+
+
+async def test_get_image_rejects_undeclared_oversized_body(vt_client, mock_session):
+    """A body with no declared length is dropped once it passes the cap."""
+    response = mock_aiohttp_response()
+    response.content_type = "image/png"
+    response.content_length = None
+    set_body(response, b"x" * (MAX_TRAIN_IMAGE_BYTES + 1), chunk_size=1024 * 1024)
+    attach_get_with_response(mock_session, response)
+
+    assert await vt_client.async_get_image("2834", station="Rtd") is None
+
+
+async def test_get_image_refreshes_an_old_result(vt_client, mock_session, monkeypatch):
+    """The same train is fetched again once the result is old enough."""
+    clock = [1000.0]
+    monkeypatch.setattr(api_virtual_train, "monotonic", lambda: clock[0])
+    response = mock_aiohttp_response()
+    response.content_type = "image/png"
+    set_body(response, b"long train")
+    attach_get_with_response(mock_session, response)
+
+    first = await vt_client.async_get_image("2834", station="Rtd")
+    clock[0] += api_virtual_train.TRAIN_IMAGE_REFRESH_SECONDS + 1
+    same = await vt_client.async_get_image("2834", station="Rtd")
+
+    assert mock_session.get.call_count == 2
+    assert same["fetched_at"] == first["fetched_at"]
+
+    set_body(response, b"short train")
+    clock[0] += api_virtual_train.TRAIN_IMAGE_REFRESH_SECONDS + 1
+    changed = await vt_client.async_get_image("2834", station="Rtd")
+
+    assert changed["bytes"] == b"short train"
+    assert changed["fetched_at"] >= first["fetched_at"]
+
+
+async def test_get_image_keeps_old_result_when_refresh_fails(
+    vt_client, mock_session, monkeypatch
+):
+    """A failed refresh keeps showing the picture already fetched."""
+    clock = [1000.0]
+    monkeypatch.setattr(api_virtual_train, "monotonic", lambda: clock[0])
+    response = mock_aiohttp_response()
+    response.content_type = "image/png"
+    set_body(response, b"train")
+    attach_get_with_response(mock_session, response)
+    await vt_client.async_get_image("2834", station="Rtd")
+
+    response.status = 404
+    clock[0] += api_virtual_train.TRAIN_IMAGE_REFRESH_SECONDS + 1
+    result = await vt_client.async_get_image("2834", station="Rtd")
+
+    assert result["bytes"] == b"train"

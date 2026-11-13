@@ -39,3 +39,17 @@ def attach_get_router(mock_session, routes: list[tuple[str, object]]) -> None:
         raise AssertionError(f"Unexpected GET {url}")
 
     mock_session.get.side_effect = _get
+
+
+def set_body(mock_response, body: bytes, chunk_size: int | None = None) -> None:
+    """Make ``response.content.iter_chunked()`` stream ``body``."""
+
+    def _iter_chunked(_size):
+        async def _chunks():
+            step = chunk_size or max(len(body), 1)
+            for start in range(0, len(body), step):
+                yield body[start : start + step]
+
+        return _chunks()
+
+    mock_response.content.iter_chunked = _iter_chunked

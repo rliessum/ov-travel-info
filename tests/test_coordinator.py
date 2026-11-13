@@ -2,11 +2,14 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from aiohttp import ClientError
+from aiohttp import ClientError, ClientResponseError
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ret_ns_departures.const import (
+    DISRUPTIONS_MAX_AGE,
     CONF_LINE_FILTER,
     CONF_MAX_DEPARTURES,
     CONF_MONITOR_DISRUPTIONS,
@@ -374,3 +377,114 @@ async def test_coordinator_departures_failure_raises_update_failed(hass, mock_se
 async def test_coordinator_unknown_operator_raises(hass, mock_session):
     with pytest.raises(ValueError, match="Unknown operator"):
         _make_coordinator(hass, mock_session, {CONF_OPERATOR: "invalid"})
+
+
+@pytest.mark.parametrize(
+    ("age", "kept", "stale"),
+    [
+        (DISRUPTIONS_MAX_AGE / 2, [{"title": "Leiden - Den Haag"}], False),
+        (DISRUPTIONS_MAX_AGE * 2, [], True),
+    ],
+)
+async def test_coordinator_ns_disruption_failure_keeps_last_known(
+    hass, mock_session, age, kept, stale
+):
+    """A failed fetch keeps recent disruptions, and marks old ones as unknown."""
+    coord = _make_coordinator(
+        hass,
+        mock_session,
+        {
+            CONF_OPERATOR: STOP_TYPE_NS,
+            CONF_STATION_CODE: "Rtd",
+            CONF_NS_API_KEY: "secret",
+            CONF_MONITOR_DISRUPTIONS: True,
+        },
+    )
+    coord.data = {
+        "departures": [],
+        "disruptions": [{"title": "Leiden - Den Haag"}],
+        "disruptions_updated": dt_util.utcnow() - age,
+    }
+
+    with (
+        patch.object(
+            coord.api_client,
+            "async_get_departures",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            coord.disruptions_client,
+            "async_get_station_disruptions",
+            new=AsyncMock(side_effect=RuntimeError("API down")),
+        ),
+    ):
+        data = await coord._async_update_data()
+
+    assert data["disruptions"] == kept
+    assert bool(data.get("disruptions_stale")) is stale
+
+
+@pytest.mark.parametrize("stored", ["abc", None, "7"])
+async def test_coordinator_survives_bad_stored_max_departures(hass, mock_session, stored):
+    """A stored value that is not a number does not stop the stop from updating."""
+    coord = _make_coordinator(
+        hass,
+        mock_session,
+        {CONF_OPERATOR: STOP_TYPE_RET, CONF_STOP_ID: "beurs", CONF_MAX_DEPARTURES: stored},
+    )
+    fetch = AsyncMock(return_value=[])
+    with (
+        patch.object(coord.api_client, "async_get_departures", new=fetch),
+        patch.object(coord.api_client, "async_get_service_notice", new=AsyncMock(return_value=None)),
+    ):
+        await coord._async_update_data()
+
+    assert fetch.call_args.kwargs["max_results"] == (7 if stored == "7" else 5)
+
+
+@pytest.mark.parametrize(
+    ("status", "raised"), [(401, ConfigEntryAuthFailed), (403, UpdateFailed)]
+)
+async def test_coordinator_ns_only_401_starts_reauth(hass, mock_session, status, raised):
+    """A 401 asks for a new key. A 403 stays a retryable failure so polling goes on."""
+    coord = _make_coordinator(
+        hass,
+        mock_session,
+        {
+            CONF_OPERATOR: STOP_TYPE_NS,
+            CONF_STATION_CODE: "Rtd",
+            CONF_NS_API_KEY: "revoked",
+        },
+    )
+    rejected = ClientResponseError(MagicMock(), (), status=status)
+
+    with patch.object(
+        coord.api_client,
+        "async_get_departures",
+        new=AsyncMock(side_effect=rejected),
+    ):
+        with pytest.raises(raised):
+            await coord._async_update_data()
+
+
+@pytest.mark.parametrize(("configured", "requested"), [(0, 1), (500, 20), (3, 3)])
+async def test_coordinator_clamps_max_departures(
+    hass, mock_session, configured, requested
+):
+    """A stored value outside 1..20 is clamped before it reaches the API."""
+    coord = _make_coordinator(
+        hass,
+        mock_session,
+        {
+            CONF_OPERATOR: STOP_TYPE_NS,
+            CONF_STATION_CODE: "Rtd",
+            CONF_NS_API_KEY: "secret",
+            CONF_MAX_DEPARTURES: configured,
+        },
+    )
+    fetch = AsyncMock(return_value=[])
+
+    with patch.object(coord.api_client, "async_get_departures", new=fetch):
+        await coord._async_update_data()
+
+    assert fetch.call_args.kwargs["max_results"] == requested

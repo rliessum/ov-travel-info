@@ -33,6 +33,13 @@
           "station": "Station",
           "monitor_disruptions": "Monitor storingen en onderhoud"
         }
+      },
+      "reauth_confirm": {
+        "title": "NS API-sleutel opnieuw invoeren",
+        "description": "NS heeft de opgeslagen API-sleutel voor {station} geweigerd. Voer een werkende sleutel in van {api_key_info}. Andere NS-stations met de oude sleutel worden ook bijgewerkt.",
+        "data": {
+          "ns_api_key": "NS API-sleutel"
+        }
       }
     },
     "error": {
@@ -46,7 +53,8 @@
     },
     "abort": {
       "already_configured": "Deze halte/station is al geconfigureerd.",
-      "unknown_operator": "Onbekende vervoerder geselecteerd."
+      "unknown_operator": "Onbekende vervoerder geselecteerd.",
+      "reauth_successful": "De API-sleutel is bijgewerkt."
     }
   },
   "options": {

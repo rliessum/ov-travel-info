@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 import homeassistant.util.dt as dt_util
 
 from .const import (
@@ -118,6 +119,11 @@ class DepartureSensorBase(CoordinatorEntity[DeparturesCoordinator], SensorEntity
         operator = config_entry.data.get(CONF_OPERATOR, "unknown")
 
         self._attr_unique_id = f"{config_entry.entry_id}_{self._sensor_type}"
+        # The displayed name follows the next service, so pin the entity ID
+        # that new installs get to the documented, stable form.
+        self.entity_id = (
+            f"sensor.{slugify(f'{operator} {location_name} {self._sensor_type}')}"
+        )
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, config_entry.entry_id)},
             name=f"{operator.upper()} {location_name}",

@@ -66,3 +66,6 @@ home-assistant_v2.db
 .uuid
 secrets.yaml
 known_devices.yaml
+
+# Verification evidence (verify-ret-ns-departures skill)
+.verify/

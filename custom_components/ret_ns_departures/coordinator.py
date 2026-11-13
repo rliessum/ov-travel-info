@@ -6,8 +6,10 @@ from datetime import timedelta
 import logging
 from typing import Any
 
+from aiohttp import ClientResponseError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -28,7 +30,9 @@ from .const import (
     CONF_STOP_NAME,
     DEFAULT_MAX_DEPARTURES,
     DEFAULT_SCAN_INTERVAL,
+    DISRUPTIONS_MAX_AGE,
     DOMAIN,
+    MAX_DEPARTURES_LIMIT,
     STOP_TYPE_NS,
     STOP_TYPE_RET,
 )
@@ -84,7 +88,9 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API."""
         try:
-            max_departures = self.config.get(CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES)
+            max_departures = _clamped_max_departures(
+                self.config.get(CONF_MAX_DEPARTURES)
+            )
 
             if self.operator == STOP_TYPE_RET:
                 line_filter = self.config.get(CONF_LINE_FILTER)
@@ -124,31 +130,53 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             # Fetch disruptions if monitoring is enabled for NS
             if self.disruptions_client and self.operator == STOP_TYPE_NS:
-                try:
-                    disruptions = await self.disruptions_client.async_get_station_disruptions(
-                        self.location_id
-                    )
-                    result["disruptions"] = disruptions
-                    _LOGGER.debug(
-                        "Fetched %d disruptions for %s %s",
-                        len(disruptions),
-                        self.operator,
-                        self.location_id,
-                    )
-                except Exception as err:
-                    _LOGGER.warning("Error fetching disruptions: %s", err)
-                    # Don't fail the entire update if disruptions fail
-                    result["disruptions"] = []
-                else:
-                    await self._async_attach_storing_geo(result["disruptions"])
+                await self._async_attach_disruptions(result)
 
             if self.virtual_train_client and self.operator == STOP_TYPE_NS:
                 await self._async_attach_train_image(result, departures)
 
             return result
 
+        except ClientResponseError as err:
+            # Only 401 means a bad key. NS answers 403 for other refusals, such
+            # as an exhausted quota, and an auth failure stops polling for good.
+            if self.operator == STOP_TYPE_NS and err.status == 401:
+                raise ConfigEntryAuthFailed("NS rejected the API key") from err
+            raise UpdateFailed(f"Error fetching departures: {err}") from err
         except Exception as err:
             raise UpdateFailed(f"Error fetching departures: {err}") from err
+
+    async def _async_attach_disruptions(self, result: dict[str, Any]) -> None:
+        """Attach NS disruptions, falling back to the last known list."""
+        now = dt_util.utcnow()
+        try:
+            disruptions = await self.disruptions_client.async_get_station_disruptions(
+                self.location_id
+            )
+        except Exception as err:  # pylint: disable=broad-except
+            _LOGGER.warning("Error fetching disruptions: %s", err)
+            # A failed fetch is not an all-clear. Keep the last known list for
+            # a while, then report the state as unknown instead of guessing.
+            previous = self.data or {}
+            updated = previous.get("disruptions_updated")
+            if updated is not None and now - updated <= DISRUPTIONS_MAX_AGE:
+                result["disruptions"] = previous.get("disruptions", [])
+                result["disruptions_updated"] = updated
+            else:
+                result["disruptions"] = []
+                result["disruptions_updated"] = updated
+                result["disruptions_stale"] = True
+            return
+
+        result["disruptions"] = disruptions
+        result["disruptions_updated"] = now
+        _LOGGER.debug(
+            "Fetched %d disruptions for %s %s",
+            len(disruptions),
+            self.operator,
+            self.location_id,
+        )
+        await self._async_attach_storing_geo(disruptions)
 
     async def _async_attach_ret_notice(
         self,
@@ -200,7 +228,7 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         result["train_image"] = image.get("bytes")
         result["train_image_content_type"] = image.get("content_type")
         result["train_image_url"] = image.get("url")
-        result["train_image_updated"] = dt_util.utcnow()
+        result["train_image_updated"] = image.get("fetched_at") or dt_util.utcnow()
         if image.get("composition"):
             result["train_composition"] = image["composition"]
 
@@ -233,6 +261,15 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             geo = geo_by_id.get(storing_id)
             if geo:
                 disruption["geo"] = geo
+
+
+def _clamped_max_departures(value: Any) -> int:
+    """Return a stored max_departures value as an int within 1..limit."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = DEFAULT_MAX_DEPARTURES
+    return min(max(number, 1), MAX_DEPARTURES_LIMIT)
 
 
 RETNSConfigEntry = ConfigEntry[DeparturesCoordinator]

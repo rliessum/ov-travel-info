@@ -108,6 +108,36 @@ async def test_form_ret_success(hass: HomeAssistant):
 
 
 @pytest.mark.asyncio
+async def test_form_ret_duplicate_stop_aborts(hass: HomeAssistant):
+    """Adding a stop that is already configured aborts the flow."""
+    MockConfigEntry(domain=DOMAIN, unique_id="ret_beurs").add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_OPERATOR: STOP_TYPE_RET},
+    )
+
+    with patch(
+        "custom_components.ret_ns_departures.config_flow.RETAPIClient.async_validate_stop",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_STOP_ID: "beurs",
+                CONF_STOP_NAME: "Beurs Metro",
+            },
+        )
+
+    assert result["type"] == data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert hass.config_entries.flow.async_progress() == []
+
+
+@pytest.mark.asyncio
 async def test_form_ret_stores_resolved_slug(hass: HomeAssistant):
     """Dead RET slugs are stored as the live replacement halt."""
     result = await hass.config_entries.flow.async_init(
@@ -527,3 +557,108 @@ async def test_form_ns_requires_key_when_none_stored(hass: HomeAssistant):
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "ns"
     assert result["errors"][CONF_NS_API_KEY] == "api_key_required"
+
+
+def _ns_entry(hass: HomeAssistant, code: str, name: str, api_key: str) -> MockConfigEntry:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"ns_{code}",
+        title=f"NS {name}",
+        data={
+            CONF_OPERATOR: STOP_TYPE_NS,
+            CONF_NS_API_KEY: api_key,
+            CONF_STATION_CODE: code,
+            CONF_STATION_NAME: name,
+        },
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+@pytest.mark.asyncio
+async def test_reauth_replaces_key_on_every_entry_that_shared_it(hass: HomeAssistant):
+    """A new key is stored on the failing entry and on entries with the same old key."""
+    failing = _ns_entry(hass, "RTD", "Rotterdam Centraal", "revoked")
+    sibling = _ns_entry(hass, "ASD", "Amsterdam Centraal", "revoked")
+    unrelated = _ns_entry(hass, "UT", "Utrecht Centraal", "other_key")
+
+    result = await failing.start_reauth_flow(hass)
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+
+    with (
+        patch(
+            "custom_components.ret_ns_departures.config_flow.NSAPIClient.async_validate_api_key",
+            return_value=True,
+        ),
+        patch(
+            "custom_components.ret_ns_departures.async_setup_entry",
+            return_value=True,
+        ),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_NS_API_KEY: " fresh_key "}
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert failing.data[CONF_NS_API_KEY] == "fresh_key"
+    assert sibling.data[CONF_NS_API_KEY] == "fresh_key"
+    assert unrelated.data[CONF_NS_API_KEY] == "other_key"
+
+
+@pytest.mark.asyncio
+async def test_reauth_rejects_a_key_ns_refuses(hass: HomeAssistant):
+    failing = _ns_entry(hass, "RTD", "Rotterdam Centraal", "revoked")
+    result = await failing.start_reauth_flow(hass)
+
+    with patch(
+        "custom_components.ret_ns_departures.config_flow.NSAPIClient.async_validate_api_key",
+        return_value=False,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_NS_API_KEY: "still_bad"}
+        )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_auth"}
+    assert failing.data[CONF_NS_API_KEY] == "revoked"
+
+
+@pytest.mark.asyncio
+async def test_form_ret_network_error_is_cannot_connect(hass: HomeAssistant):
+    """A ret.nl outage is reported as a connection problem, not an invalid stop."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_OPERATOR: STOP_TYPE_RET}
+    )
+
+    with patch(
+        "custom_components.ret_ns_departures.config_flow.RETAPIClient.async_validate_stop",
+        side_effect=TimeoutError(),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_STOP_ID: "beurs", CONF_STOP_NAME: "Beurs"}
+        )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [0, 21])
+async def test_options_reject_max_departures_out_of_range(hass: HomeAssistant, value):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_OPERATOR: STOP_TYPE_RET, CONF_STOP_ID: "beurs"},
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    with pytest.raises(data_entry_flow.InvalidData):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], {"max_departures": value}
+        )

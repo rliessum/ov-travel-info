@@ -1,11 +1,11 @@
 """Tests for the RET website client (HTML parsing)."""
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import ClientError
 from freezegun import freeze_time
 
-from custom_components.ret_ns_departures.api_ret import RETAPIClient
+from custom_components.ret_ns_departures.api_ret import RETAPIClient, RETMarkupError
 
 from tests.helpers import (
     attach_get_router,
@@ -116,14 +116,32 @@ async def test_get_departures_network_error(ret_client, mock_session):
 
 @pytest.mark.asyncio
 async def test_get_departures_empty_html(ret_client, mock_session):
-    """No matching rows yields an empty list."""
-    attach_get_with_response(
-        mock_session, mock_aiohttp_response(text="<html><body></body></html>")
-    )
+    """A departure board with no rows yields an empty list."""
+    html = _ret_page('<div class="busline__display busline__display--departures"></div>')
+    attach_get_with_response(mock_session, mock_aiohttp_response(text=html))
 
     departures = await ret_client.async_get_departures("beurs")
 
     assert departures == []
+
+
+async def test_page_without_departure_board_is_an_error(ret_client, mock_session):
+    """A page with no board at all is reported, not read as "no service"."""
+    attach_get_with_response(
+        mock_session, mock_aiohttp_response(text="<html><body><h1>Beurs</h1></body></html>")
+    )
+
+    with pytest.raises(RETMarkupError):
+        await ret_client.async_get_departures("beurs")
+
+
+async def test_unreadable_departure_rows_are_an_error(ret_client, mock_session):
+    """Rows that have lost their line and time fields are reported."""
+    html = _ret_page('<a class="modal__toggle--generated"><span>Tram 8</span></a>')
+    attach_get_with_response(mock_session, mock_aiohttp_response(text=html))
+
+    with pytest.raises(RETMarkupError):
+        await ret_client.async_get_departures("beurs")
 
 
 @pytest.mark.asyncio
@@ -168,19 +186,29 @@ async def test_validate_stop_success(ret_client, mock_session):
 
 
 @pytest.mark.asyncio
-async def test_validate_stop_client_error(ret_client, mock_session):
-    """HTTP/client errors make validation False."""
-    mock_session.get.side_effect = ClientError("Not found")
+async def test_validate_stop_client_error_propagates(ret_client, mock_session):
+    """A network failure is not reported as an invalid stop."""
+    mock_session.get.side_effect = ClientError("Connection reset")
 
-    assert await ret_client.async_validate_stop("unknown") is False
+    with pytest.raises(ClientError):
+        await ret_client.async_validate_stop("beurs")
 
 
 @pytest.mark.asyncio
-async def test_validate_stop_timeout_still_true(ret_client, mock_session):
-    """Non-ClientError exceptions are treated as inconclusive (True)."""
+async def test_validate_stop_timeout_propagates(ret_client, mock_session):
+    """A timeout is not reported as a valid stop."""
     mock_session.get.side_effect = TimeoutError()
 
-    assert await ret_client.async_validate_stop("beurs") is True
+    with pytest.raises(TimeoutError):
+        await ret_client.async_validate_stop("beurs")
+
+
+@pytest.mark.asyncio
+async def test_validate_stop_rejects_path_characters(ret_client, mock_session):
+    """A stop ID that is not a plain slug is rejected without a request."""
+    assert await ret_client.async_validate_stop("../../home/contact") is False
+    assert await ret_client.async_validate_stop("beurs?x=1") is False
+    mock_session.get.assert_not_called()
 
 
 def _inactive_halt_page() -> str:
@@ -300,3 +328,17 @@ async def test_validate_stop_accepts_alias_for_inactive_page(ret_client, mock_se
     )
 
     assert await ret_client.async_validate_stop("centraal-station") is True
+
+
+@pytest.mark.asyncio
+async def test_unresolvable_stop_is_not_searched_again_on_the_next_poll(ret_client):
+    """A stop with no halt page triggers one website search, not one per poll."""
+    search = AsyncMock(return_value=[])
+    with (
+        patch.object(ret_client, "_async_fetch_halt_html", new=AsyncMock(return_value=None)),
+        patch.object(ret_client, "_async_search_halt_slugs", new=search),
+    ):
+        assert await ret_client.async_get_departures("ghost-stop") == []
+        assert await ret_client.async_get_departures("ghost-stop") == []
+
+    assert search.call_count == 1

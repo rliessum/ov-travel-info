@@ -81,3 +81,18 @@ def test_disruption_sensor_name_lists_extra_count():
     )
     assert sensor.name == "Leiden - Den Haag (+1)"
     assert sensor.extra_state_attributes["other_disruptions"] == ["Groningen - Leer"]
+
+
+def test_disruption_entity_id_does_not_follow_the_disruption_title():
+    sensor = _sensor([{"id": "1", "title": "Schiphol - Leiden", "type": "DISRUPTION"}])
+
+    assert sensor.name == "Schiphol - Leiden"
+    assert sensor.entity_id == "binary_sensor.ns_rotterdam_centraal_disruptions"
+
+
+def test_disruption_sensor_is_unknown_when_last_fetch_is_too_old():
+    """With no recent answer from NS the sensor is unknown, not all-clear."""
+    sensor = _sensor([])
+    sensor.coordinator.data["disruptions_stale"] = True
+
+    assert sensor.is_on is None

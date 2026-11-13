@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -10,7 +11,6 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
     LocationSelector,
     LocationSelectorConfig,
@@ -35,6 +35,7 @@ from .const import (
     CONF_STOP_ID,
     CONF_STOP_NAME,
     DEFAULT_MAX_DEPARTURES,
+    MAX_DEPARTURES_LIMIT,
     DOMAIN,
     STOP_TYPE_NS,
     STOP_TYPE_RET,
@@ -95,16 +96,17 @@ class RETNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 is_valid = await client.async_validate_stop(stop_id)
-
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.error("Error validating RET stop: %s", err)
+                errors["base"] = "cannot_connect"
+            else:
                 if not is_valid:
                     errors[CONF_STOP_ID] = "invalid_stop"
                 else:
                     resolved = client.resolved_stop_id(stop_id) or stop_id
                     user_input[CONF_STOP_ID] = resolved
-                    # Store the configuration
                     self._data.update(user_input)
 
-                    # Create unique ID
                     await self.async_set_unique_id(f"ret_{resolved}")
                     self._abort_if_unique_id_configured()
 
@@ -112,10 +114,6 @@ class RETNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         title=f"RET {user_input[CONF_STOP_NAME]}",
                         data=self._data,
                     )
-
-            except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.error("Error validating RET stop: %s", err)
-                errors["base"] = "cannot_connect"
 
         data_schema = vol.Schema(
             {
@@ -290,6 +288,53 @@ class RETNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             options={CONF_MONITOR_DISRUPTIONS: monitor_disruptions},
         )
 
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]  # pylint: disable=unused-argument
+    ) -> FlowResult:
+        """Start reauthentication after NS rejected the stored API key."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Ask for a new NS API key and apply it to every entry that shared the old one."""
+        errors: dict[str, str] = {}
+        entry = self._get_reauth_entry()
+
+        if user_input is not None:
+            api_key = user_input[CONF_NS_API_KEY].strip()
+            client = NSAPIClient(async_get_clientsession(self.hass), api_key)
+            key_status = await client.async_validate_api_key()
+            if key_status is False:
+                errors["base"] = "invalid_auth"
+            elif key_status is None:
+                errors["base"] = "cannot_connect"
+            else:
+                old_key = entry.data.get(CONF_NS_API_KEY)
+                for other in self._async_current_entries():
+                    if (
+                        other.entry_id != entry.entry_id
+                        and other.data.get(CONF_OPERATOR) == STOP_TYPE_NS
+                        and other.data.get(CONF_NS_API_KEY) == old_key
+                    ):
+                        self.hass.config_entries.async_update_entry(
+                            other, data={**other.data, CONF_NS_API_KEY: api_key}
+                        )
+                        self.hass.config_entries.async_schedule_reload(other.entry_id)
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_NS_API_KEY: api_key}
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_NS_API_KEY): str}),
+            errors=errors,
+            description_placeholders={
+                "station": entry.title,
+                "api_key_info": "https://apiportal.ns.nl (Ns-App product)",
+            },
+        )
+
     def _async_ns_already_configured(self, station_code: str) -> bool:
         """Return True if this station is already set up (case-insensitive)."""
         wanted = station_code.upper()
@@ -339,10 +384,16 @@ class RETNSOptionsFlow(config_entries.OptionsFlow):
         options_schema = {
             vol.Optional(
                 CONF_MAX_DEPARTURES,
-                default=self.config_entry.options.get(
-                    CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES
+                default=min(
+                    max(
+                        self.config_entry.options.get(
+                            CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES
+                        ),
+                        1,
+                    ),
+                    MAX_DEPARTURES_LIMIT,
                 ),
-            ): cv.positive_int,
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=MAX_DEPARTURES_LIMIT)),
         }
 
         # Add RET-specific options

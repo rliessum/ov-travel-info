@@ -50,6 +50,13 @@
           "station": "Station code and official name from NS",
           "monitor_disruptions": "Uses the NS Disruptions API (v3) and Spoorkaart getStoring map data for this station"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter NS API key",
+        "description": "NS rejected the stored API key for {station}. Enter a working key from {api_key_info}. Other NS stations that used the old key are updated too.",
+        "data": {
+          "ns_api_key": "NS API Key"
+        }
       }
     },
     "error": {
@@ -63,7 +70,8 @@
     },
     "abort": {
       "already_configured": "This stop/station is already configured.",
-      "unknown_operator": "Unknown operator selected."
+      "unknown_operator": "Unknown operator selected.",
+      "reauth_successful": "The API key was updated."
     }
   },
   "options": {

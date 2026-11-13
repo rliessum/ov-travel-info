@@ -8,9 +8,11 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
 from .const import (
     ATTR_DISRUPTION_BBOX,
@@ -44,7 +46,7 @@ from .disruption_info import disruption_name, primary_display_attributes
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,  # pylint: disable=unused-argument
+    hass: HomeAssistant,
     config_entry: RETNSConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
@@ -63,6 +65,13 @@ async def async_setup_entry(
         async_add_entities(
             [StationDisruptionSensor(coordinator, config_entry, location_name)]
         )
+    elif operator == STOP_TYPE_NS:
+        registry = er.async_get(hass)
+        stale = registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{config_entry.entry_id}_disruptions"
+        )
+        if stale:
+            registry.async_remove(stale)
     elif operator == STOP_TYPE_RET:
         location_name = config_entry.data.get(CONF_STOP_NAME, "Unknown Stop")
         async_add_entities(
@@ -93,6 +102,10 @@ class StationDisruptionSensor(
         self._attr_unique_id = f"{config_entry.entry_id}_disruptions"
 
         operator = config_entry.data.get(CONF_OPERATOR, STOP_TYPE_NS)
+        # The displayed name follows the active disruption, so pin the entity ID.
+        self.entity_id = (
+            f"binary_sensor.{slugify(f'{operator} {location_name} disruptions')}"
+        )
         # Use same device info as departure sensors for grouping
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, config_entry.entry_id)},
@@ -102,8 +115,10 @@ class StationDisruptionSensor(
         )
 
     @property
-    def is_on(self) -> bool:
-        """Return true if there are active disruptions."""
+    def is_on(self) -> bool | None:
+        """Return true if there are active disruptions, None when unknown."""
+        if (self.coordinator.data or {}).get("disruptions_stale"):
+            return None
         return len(self._get_disruptions()) > 0
 
     @property

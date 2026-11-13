@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-11-13
+
+### Added
+
+- **Re-enter a rejected NS API key.** When NS refuses the stored key (HTTP 401), Home Assistant now asks for a new one instead of failing every 30 seconds. The new key is applied to every NS station that used the old key.
+
+### Changed
+
+- **Stable entity IDs on new installs.** New entries get `sensor.<operator>_<name>_next_departure`, `sensor.<operator>_<name>_time_to_next_departure` and `binary_sensor.<operator>_<name>_disruptions`, as the docs describe. The displayed name still follows the next service or the active disruption. Existing entities keep their current IDs.
+- **Maximum departures is limited to 1 to 20.** A stored value outside that range is clamped.
+- **Stop validation reports outages honestly.** A ret.nl timeout or network error during setup now shows "cannot connect" instead of accepting the stop or calling it invalid. Stop IDs must be plain ret.nl slugs (letters, digits, hyphens).
+
+### Fixed
+
+- Adding a RET stop that is already configured now aborts with "already configured" instead of "cannot connect", and no longer blocks a later add of that stop.
+- The next-train image is fetched once per train and refreshed every 10 minutes, instead of on every 30-second poll. Train images must come from an `https` URL and are capped at 5 MB.
+- A RET stop with no working halt page is searched on ret.nl once per 15 minutes instead of on every poll, with at most 5 search results tried.
+- A failed NS disruptions request keeps the last known disruptions instead of reporting none. After 30 minutes without an answer the disruption sensor reads unknown.
+- A ret.nl halt page whose layout is no longer recognised makes the stop unavailable with a logged reason, instead of reading as "no service".
+- The "no usable RET halt page" warning is logged once per 15 minutes instead of on every poll.
+- Turning off NS disruption monitoring removes the disruption sensor instead of leaving it unavailable.
+
 ## [3.5.4] - 2026-08-18
 
 ### Changed

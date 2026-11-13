@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
 import re
+from time import monotonic
 from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -25,7 +26,9 @@ from .const import (
     RET_BASE_URL,
     RET_DIVERSIONS_CACHE_SECONDS,
     RET_DIVERSIONS_URL,
+    RET_MAX_SEARCH_CANDIDATES,
     RET_SEARCH_CATEGORY_HALTES,
+    RET_SEARCH_RETRY_SECONDS,
     RET_SEARCH_TYPE,
     RET_SITE_URL,
     RET_STOP_ALIASES,
@@ -37,7 +40,14 @@ _LOGGER = logging.getLogger(__name__)
 _HALTE_SLUG_RE = re.compile(
     r"/home/reizen/halte/([a-z0-9-]+)\.html", re.IGNORECASE
 )
+_VALID_SLUG_RE = re.compile(r"[a-z0-9-]+")
 _INACTIVE_NOTICE = "niet gereden"
+# Class fragments that a ret.nl halt page carries around its departure board.
+_BOARD_MARKERS = ("busline__display", "timetable__", "favorite__")
+
+
+class RETMarkupError(Exception):
+    """The ret.nl halt page no longer has the layout this parser reads."""
 
 
 def _normalize_stop_id(stop_id: str) -> str:
@@ -78,6 +88,7 @@ class RETAPIClient:
         self._base_url = RET_BASE_URL
         self._tz = ZoneInfo(TIMEZONE)
         self._resolved_slugs: dict[str, str] = {}
+        self._search_retry_at: dict[str, float] = {}
         self._last_halt = _LastHalt()
         self._diversions_cache: tuple[float, list[dict[str, Any]]] | None = None
 
@@ -105,7 +116,7 @@ class RETAPIClient:
         try:
             loaded = await self._async_load_halt_page(stop_id)
             if loaded is None:
-                _LOGGER.warning("No usable RET halt page for stop %s", stop_id)
+                _LOGGER.debug("No usable RET halt page for stop %s", stop_id)
                 return []
 
             slug, html_content = loaded
@@ -127,6 +138,8 @@ class RETAPIClient:
     async def _async_load_halt_page(self, stop_id: str) -> tuple[str, str] | None:
         """Return ``(slug, html)`` for the halt that currently has a board."""
         requested = _normalize_stop_id(stop_id)
+        if not _VALID_SLUG_RE.fullmatch(requested):
+            return None
         if requested in self._resolved_slugs:
             slug = self._resolved_slugs[requested]
             html = await self._async_fetch_halt_html(slug)
@@ -149,14 +162,21 @@ class RETAPIClient:
                 _LOGGER.info("RET halt %s resolved to %s", requested, slug)
             return slug, html
 
-        for found in await self._async_search_halt_slugs(requested):
+        if monotonic() < self._search_retry_at.get(requested, 0.0):
+            return None
+
+        found_slugs = await self._async_search_halt_slugs(requested)
+        for found in found_slugs[:RET_MAX_SEARCH_CANDIDATES]:
             if found in tried:
                 continue
             tried.add(found)
             html = await self._async_fetch_halt_html(found)
             if html is None or _is_inactive_halt(html):
                 continue
-            departures = await self._parse_departures(html, max_results=1)
+            try:
+                departures = await self._parse_departures(html, max_results=1)
+            except RETMarkupError:
+                continue
             if not departures:
                 continue
             self._resolved_slugs[requested] = found
@@ -164,6 +184,12 @@ class RETAPIClient:
             _LOGGER.info("RET halt %s resolved to %s via search", requested, found)
             return found, html
 
+        self._search_retry_at[requested] = monotonic() + RET_SEARCH_RETRY_SECONDS
+        _LOGGER.warning(
+            "No usable RET halt page for stop %s, searching again in %d minutes",
+            requested,
+            RET_SEARCH_RETRY_SECONDS // 60,
+        )
         return None
 
     def _remember_halt(self, html: str) -> None:
@@ -286,11 +312,20 @@ class RETAPIClient:
 
             # Find all departure rows
             departure_rows = soup.find_all('a', class_='modal__toggle--generated')
+            if not departure_rows and not any(
+                marker in html_content for marker in _BOARD_MARKERS
+            ):
+                raise RETMarkupError(
+                    "ret.nl halt page has no departure board; the page layout "
+                    "may have changed"
+                )
+            unreadable = 0
 
             for row in departure_rows:
                 # Extract line name (e.g., "Tram 8")
                 line_info = row.find('span', class_='favorite__info')
                 if not line_info:
+                    unreadable += 1
                     continue
 
                 line_text = line_info.get_text(strip=True)
@@ -314,6 +349,7 @@ class RETAPIClient:
                 # Extract departure time
                 time_spans = row.find_all('span', class_='favorite__time__amount')
                 if not time_spans:
+                    unreadable += 1
                     continue
 
                 time_str = time_spans[0].get_text(strip=True)
@@ -382,6 +418,14 @@ class RETAPIClient:
 
                 departures.append(departure)
 
+            if departure_rows and unreadable == len(departure_rows):
+                raise RETMarkupError(
+                    "ret.nl departure rows could not be read; the page layout "
+                    "may have changed"
+                )
+
+        except RETMarkupError:
+            raise
         except Exception as err:
             _LOGGER.error("Error parsing RET HTML: %s", err)
             raise
@@ -403,13 +447,7 @@ class RETAPIClient:
             stop_id: The stop name to validate (e.g., "schiekade")
 
         Returns:
-            True if valid, False otherwise
+            True if valid, False otherwise. Network errors propagate so the
+            caller can report a connection problem instead of guessing.
         """
-        try:
-            loaded = await self._async_load_halt_page(stop_id)
-            return loaded is not None
-        except ClientError:
-            return False
-        except Exception:  # noqa: BLE001
-            # Timeout or other errors - assume stop might be valid
-            return True
+        return await self._async_load_halt_page(stop_id) is not None
