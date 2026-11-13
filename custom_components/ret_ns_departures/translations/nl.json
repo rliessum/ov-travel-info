@@ -46,7 +46,7 @@
       "cannot_connect": "Kan geen verbinding maken met de API. Controleer uw internetverbinding en probeer het opnieuw.",
       "invalid_stop": "Ongeldige halte ID. Controleer de halte ID en probeer het opnieuw.",
       "invalid_station": "Ongeldige stationscode of API key. Controleer en probeer het opnieuw.",
-      "invalid_auth": "Ongeldige API-sleutel. Controleer de sleutel op https://apiportal.ns.nl en abonneer u op het Ns-App-product.",
+      "invalid_auth": "Ongeldige API-sleutel. Controleer de sleutel in de NS API Portal en abonneer u op het Ns-App-product.",
       "api_key_required": "Voer een NS API-sleutel in, of voeg eerst een NS-station toe zodat een bestaande sleutel kan worden hergebruikt.",
       "no_stations_found": "Geen stations gevonden. Probeer een andere locatie of zoek op naam (bijvoorbeeld Rotterdam).",
       "unknown": "Er is een onverwachte fout opgetreden."
@@ -148,21 +148,21 @@
           "disruption_type": {
             "name": "Type",
             "state": {
-              "DISRUPTION": "Storing",
-              "MAINTENANCE": "Werkzaamheden",
-              "CALAMITY": "Calamiteit",
-              "STORING": "Storing",
-              "WERKZAAMHEID": "Werkzaamheden"
+              "disruption": "Storing",
+              "maintenance": "Werkzaamheden",
+              "calamity": "Calamiteit",
+              "storing": "Storing",
+              "werkzaamheid": "Werkzaamheden"
             }
           },
           "level": {
             "name": "Gevolg",
             "state": {
-              "MINDER_TREINEN": "Minder treinen",
-              "GEEN_TREINEN": "Geen treinen",
-              "STATION_GESLOTEN": "Station gesloten",
-              "OMREIZEN": "Reis via een andere route",
-              "VERTRAGING": "Vertraging"
+              "minder_treinen": "Minder treinen",
+              "geen_treinen": "Geen treinen",
+              "station_gesloten": "Station gesloten",
+              "omreizen": "Reis via een andere route",
+              "vertraging": "Vertraging"
             }
           },
           "stations": {

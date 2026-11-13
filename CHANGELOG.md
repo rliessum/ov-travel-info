@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stable entity IDs on new installs.** New entries get `sensor.<operator>_<name>_next_departure`, `sensor.<operator>_<name>_time_to_next_departure` and `binary_sensor.<operator>_<name>_disruptions`, as the docs describe. The displayed name still follows the next service or the active disruption. Existing entities keep their current IDs.
 - **Maximum departures is limited to 1 to 20.** A stored value outside that range is clamped.
 - **Marketplace and HACS metadata.** The repository now runs the HACS and hassfest checks, declares the public transport category, and ships translations only (`strings.json` is removed).
+- **Lower-case `disruption_type` and `level` attributes.** The two top-level attributes on the disruption sensor now read `disruption` and `minder_treinen` instead of `DISRUPTION` and `MINDER_TREINEN`, as Home Assistant requires for translated values. Update templates that compare them. The entries inside the `disruptions` list are unchanged.
 - **Stop validation reports outages honestly.** A ret.nl timeout or network error during setup now shows "cannot connect" instead of accepting the stop or calling it invalid. Stop IDs must be plain ret.nl slugs (letters, digits, hyphens).
 
 ### Fixed

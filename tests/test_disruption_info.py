@@ -79,3 +79,13 @@ def test_primary_display_attributes_are_flat_and_readable():
     assert attrs["situation"] == "Geen treinen"
     assert attrs["stations"] == "Leiden Centraal, Den Haag HS"
     assert attrs["other_disruptions"] == ["Groningen - Leer"]
+
+
+def test_translated_attributes_are_lower_case():
+    """Type and level match their lower-case translation keys."""
+    attrs = primary_display_attributes(
+        [{"title": "Leiden", "type": "DISRUPTION", "geo": {"level": "MINDER_TREINEN"}}]
+    )
+
+    assert attrs["disruption_type"] == "disruption"
+    assert attrs["level"] == "minder_treinen"

@@ -121,12 +121,13 @@ def primary_display_attributes(disruptions: list[dict[str, Any]]) -> dict[str, A
 
     dtype = _clean_text(primary.get("type"))
     if dtype:
-        attributes[ATTR_DISRUPTION_TYPE] = dtype
+        # Lower case, so the value matches its translation key.
+        attributes[ATTR_DISRUPTION_TYPE] = dtype.lower()
 
     geo = primary.get("geo") if isinstance(primary.get("geo"), dict) else {}
     level = _clean_text(geo.get("level") or primary.get("level"))
     if level:
-        attributes[ATTR_DISRUPTION_LEVEL] = level
+        attributes[ATTR_DISRUPTION_LEVEL] = level.lower()
 
     stations = primary.get("stations") or []
     if stations:

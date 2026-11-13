@@ -46,7 +46,7 @@
       "cannot_connect": "Failed to connect to the API. Please check your internet connection and try again.",
       "invalid_stop": "Invalid stop ID. Please verify the stop ID and try again.",
       "invalid_station": "Invalid station code or API key. Please verify and try again.",
-      "invalid_auth": "Invalid API key. Check your key at https://apiportal.ns.nl and subscribe to the Ns-App product.",
+      "invalid_auth": "Invalid API key. Check your key in the NS API Portal and subscribe to the Ns-App product.",
       "api_key_required": "Enter an NS API key, or add an NS station first so an existing key can be reused.",
       "no_stations_found": "No stations found. Try another location or search by name (for example Rotterdam).",
       "unknown": "An unexpected error occurred."
@@ -148,21 +148,21 @@
           "disruption_type": {
             "name": "Type",
             "state": {
-              "DISRUPTION": "Disruption",
-              "MAINTENANCE": "Maintenance",
-              "CALAMITY": "Calamity",
-              "STORING": "Disruption",
-              "WERKZAAMHEID": "Maintenance"
+              "disruption": "Disruption",
+              "maintenance": "Maintenance",
+              "calamity": "Calamity",
+              "storing": "Disruption",
+              "werkzaamheid": "Maintenance"
             }
           },
           "level": {
             "name": "Impact",
             "state": {
-              "MINDER_TREINEN": "Fewer trains",
-              "GEEN_TREINEN": "No trains",
-              "STATION_GESLOTEN": "Station closed",
-              "OMREIZEN": "Travel via another route",
-              "VERTRAGING": "Delay"
+              "minder_treinen": "Fewer trains",
+              "geen_treinen": "No trains",
+              "station_gesloten": "Station closed",
+              "omreizen": "Travel via another route",
+              "vertraging": "Delay"
             }
           },
           "stations": {
