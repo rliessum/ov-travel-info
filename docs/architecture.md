@@ -28,7 +28,6 @@ ov-travel-info/
 │       ├── translations/
 │       │   ├── en.json                 # English translations
 │       │   └── nl.json                 # Dutch translations
-│       ├── strings.json                # UI strings
 │       └── README.md                   # Integration readme (HACS)
 ├── brand/                              # Repo-level HACS brand assets (icon.png)
 ├── docs/                               # All long-form documentation
@@ -122,10 +121,6 @@ ov-travel-info/
    - UI text translations
    - Error messages
    - Configuration descriptions
-
-12. **`strings.json`**
-    - UI strings with descriptions
-    - Field explanations
 
 ## Features Summary
 

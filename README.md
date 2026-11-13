@@ -13,9 +13,11 @@ A Home Assistant custom integration for real-time public transport departures in
 
 ## Quick start
 
-1. Install via [HACS](https://www.hacs.xyz/) or copy `custom_components/ret_ns_departures` into your Home Assistant `config/custom_components/` directory
+1. Install from the Home Assistant **Marketplace** (2026.11 and newer) or [HACS](https://www.hacs.xyz/) (older versions) by adding this repository as a custom repository, or copy `custom_components/ret_ns_departures` into your Home Assistant `config/custom_components/` directory
 2. Restart Home Assistant
-3. **Settings** → **Devices & services** → **Add integration** → search **RET & NS Departures**
+3. **Settings** → **Devices & services** → **Add integration** → search **RET & NS Departures**, or use this button:
+
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=ret_ns_departures)
 
 ## Documentation
 

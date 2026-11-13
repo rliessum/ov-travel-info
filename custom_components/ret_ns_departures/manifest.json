@@ -1,9 +1,14 @@
 {
   "domain": "ret_ns_departures",
   "name": "RET & NS Departures",
-  "codeowners": ["@rliessum"],
+  "categories": [
+    "vehicles_transport.public_transport"
+  ],
+  "codeowners": [
+    "@rliessum"
+  ],
   "config_flow": true,
-  "documentation": "https://github.com/rliessum/ov-travel-info",
+  "documentation": "https://github.com/rliessum/ov-travel-info#readme",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/rliessum/ov-travel-info/issues",

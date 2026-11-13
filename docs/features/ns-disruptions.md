@@ -70,7 +70,6 @@ The binary sensor will be created automatically after enabling.
 4. **`config_flow.py`** - Added disruption monitoring option
 5. **`translations/en.json`** - Added English translations
 6. **`translations/nl.json`** - Added Dutch translations
-7. **`strings.json`** - Added option descriptions
 
 ## Features
 

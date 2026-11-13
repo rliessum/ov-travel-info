@@ -1,6 +1,6 @@
 # RET & NS Departures for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=ret_ns_departures)
 
 Long-form documentation (install, architecture, dashboards): [docs/README.md](../../docs/README.md)
 
@@ -23,15 +23,14 @@ A Home Assistant custom integration that provides public transport departure inf
 
 ## Installation
 
-### HACS (Recommended)
+### Marketplace or HACS (Recommended)
 
-1. Open HACS in Home Assistant
-2. Click on "Integrations"
-3. Click the three dots in the top right corner
-4. Select "Custom repositories"
-5. Add this repository URL and select "Integration" as the category
-6. Click "Install"
-7. Restart Home Assistant
+On Home Assistant 2026.11 and newer, open **Settings** → **Marketplace**. On older versions, open HACS.
+
+1. Open the menu and choose "Custom repositories"
+2. Add this repository URL and select "Integration" as the type
+3. Install **RET & NS Departures**
+4. Restart Home Assistant
 
 ### Manual Installation
 
