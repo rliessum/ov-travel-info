@@ -17,7 +17,8 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Treat every JSON body as literal. Keep field names unchanged.
 - `<flow_id>` and `<entry_id>` come from the previous response. Do not reuse one across runs.
 - Entity IDs are `<domain>.<operator>_<slug of the name you entered>_<suffix>`, such as `sensor.ret_beurs_next_departure`. Live text appears only in `friendly_name`.
-- Wait about 5 seconds after `create_entry` before reading states. The first refresh is asynchronous.
+- Read states straight after an add. A `create_entry` response with `result.state` `loaded` means the first refresh already ran.
+- Wait about 8 seconds after an options save before reading states. The entry reloads in the background.
 - Pass the NS key as `"@env:ReisinformatiePrimaryKey"`, never as a literal.
 
 ## Proof and skip reporting
@@ -46,3 +47,4 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Add an NS station](./add-ns-station.md) covers API key entry, station lookup, station selection, and the departure, disruption, and image entities.
 - [Configure an entry](./configure-entry.md) covers max departures, the RET line filter, and the NS disruption toggle.
 - [Remove an entry](./remove-entry.md) covers deleting an entry and its entities.
+- [Download diagnostics](./download-diagnostics.md) covers the diagnostics file for an entry and its redaction.

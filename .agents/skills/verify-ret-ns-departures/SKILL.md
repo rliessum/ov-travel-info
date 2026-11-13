@@ -1,6 +1,6 @@
 ---
 name: verify-ret-ns-departures
-description: Drive the RET & NS Departures Home Assistant integration in a real, disposable Home Assistant instance and capture proof. Use to verify a change to the config flow, options, sensors, disruption binary sensors, or the NS train image against live ret.nl and NS data, beyond what pytest shows.
+description: Drive the RET & NS Departures Home Assistant integration in a real, disposable Home Assistant instance and capture proof. Use to verify a change to the config flow, options, sensors, disruption binary sensors, the NS train image, or the diagnostics download against live ret.nl and NS data, beyond what pytest shows.
 ---
 
 # Verify RET & NS Departures
@@ -60,7 +60,8 @@ Endpoints the feature recipes use:
 - `GET /api/config/config_entries/entry?domain=ret_ns_departures` lists entries with `entry_id`, `title`, and `state`.
 - `POST /api/config/config_entries/options/flow` with `{"handler":"<entry_id>"}` opens Configure for an entry. Submit to `/api/config/config_entries/options/flow/<flow_id>`.
 - `DELETE /api/config/config_entries/entry/<entry_id>` removes an entry.
-- `DELETE /api/config/config_entries/flow/<flow_id>` abandons an unfinished flow, as closing the dialog does in the UI. Abandon every flow you do not finish. An open flow keeps its stop reserved and blocks a later add of the same stop.
+- `DELETE /api/config/config_entries/flow/<flow_id>` abandons an unfinished flow, as closing the dialog does in the UI. Abandon every flow you do not finish, so no half-filled dialog outlives the check. An open flow does not reserve its stop. A second flow can still add it.
+- `GET /api/diagnostics/config_entry/<entry_id>` returns the file a user gets from Download diagnostics on an entry.
 - `GET /api/states` returns every entity. `GET /api/states/<entity_id>` returns one.
 
 A form error comes back as HTTP 200 with `"type": "form"` and a non-empty `errors` object. Assert on `type` and `errors`, not on the status code.
@@ -80,7 +81,7 @@ Evidence lands in `.verify/<run-id>/` at the repo root. The directory is gitigno
 Proof standards for this repo:
 
 - Go through the config flow. Do not write `.storage/core.config_entries` by hand.
-- Capture the action and the resulting state. A `create_entry` response alone is not proof. Follow it with a `GET /api/states` that shows the entities and their values.
+- Capture the action and the resulting state. A `create_entry` response alone is not proof. Follow it with a `GET /api/states` that shows the entities and their values. No wait is needed after an add. Wait about 8 seconds after an options save.
 - Data is live from ret.nl and the NS API. Assert shape and plausibility (a timestamp in the near future, a `departures` list, the configured `stop_name`), not fixed destinations or times.
 - After a removal, capture states again and show the entities are gone.
 - Scan `home-assistant.log` in the evidence directory for `ERROR` and `Traceback` after cleanup, and report what you find.
