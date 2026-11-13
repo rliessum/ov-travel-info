@@ -7,6 +7,7 @@ A user deletes a stop or station from the integration, and its entities disappea
 - `remove-entry` deletes the entry without requiring a restart.
 - `remove-entities` leaves no entities for the removed stop.
 - `remove-readd` allows the same stop to be added again.
+- `remove-last-ns` makes the next NS flow ask for the API key again.
 
 ## How to get to it (user POV)
 
@@ -24,9 +25,10 @@ Preconditions:
 - **Confirm entities gone.** Run `V api --run <run-id> --label remove-entities GET /api/states`. No entity ID contains `ret_beurs`.
 - **Confirm entry gone.** Repeat Find entry with label `remove-entries-after`. No item is titled `RET Beurs`.
 - **Add again.** Run the Open flow, Choose RET, and Create entry steps from [Add a RET stop](./add-ret-stop.md) with label `remove-readd`. The response has `type` `create_entry`, not `abort`.
+- **Remove the last NS entry.** With `NS Rotterdam Centraal` as the only NS entry, delete it with label `remove-last-ns`. Open a new flow and choose `ns` with label `remove-last-ns-form`. The `ns_api_key` field is `required` again. Abandon that flow.
 
 ## Gotchas
 
-- Removing the only NS entry also drops the stored API key. The next NS flow requires the key again.
+- The API key is kept with each NS entry and offered from any NS entry that remains. Removing the last one drops it.
 - Other entries must stay `loaded`. Check their `state` in the Confirm entry gone response.
 - An `entry_id` is dead after deletion. A second `DELETE` returns HTTP 404 and the helper exits `1`.

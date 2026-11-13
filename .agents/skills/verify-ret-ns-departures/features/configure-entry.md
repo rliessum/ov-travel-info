@@ -10,6 +10,7 @@ A user opens Configure on an existing stop or station and changes how many depar
 - `opt-max-departures` caps the `departures` list.
 - `opt-max-range` rejects a value outside 1 to 20.
 - `opt-ns-disruptions-off` removes the NS disruption sensor.
+- `opt-ns-disruptions-on` brings the NS disruption sensor back under the same entity ID.
 
 ## How to get to it (user POV)
 
@@ -20,18 +21,19 @@ A user opens Configure on an existing stop or station and changes how many depar
 Preconditions:
 
 - Doctor exits `0`.
-- The entry `RET Beurs` exists, created per [Add a RET stop](./add-ret-stop.md).
+- The entry `RET Beurs` exists, created per [Add a RET stop](./add-ret-stop.md) without a line filter.
 - For the NS bullets, the entry `NS Rotterdam Centraal` exists with disruptions monitored.
 
 - **Capture before.** Run `V api --run <run-id> --label opt-before-ret GET /api/states`. Note a line that appears at least twice in the `sensor.ret_beurs_next_departure` `departures` list, or the last one listed. The recipe below uses `1`.
 - **Find entry.** Run `V api --run <run-id> --label opt-entries GET "/api/config/config_entries/entry?domain=ret_ns_departures"`. Take `entry_id` from the item whose `title` is `RET Beurs`.
 - **Open Configure.** Run `V api --run <run-id> --label opt-form-ret POST /api/config/config_entries/options/flow '{"handler":"<entry_id>"}'`. The response has `step_id` `init` with `max_departures` defaulting to `5` and bounded by `valueMin` `1` and `valueMax` `20`, and `line_filter` defaulting to an empty string.
-- **Out of range.** Run `V api --run <run-id> --label opt-max-zero POST /api/config/config_entries/options/flow/<flow_id> '{"max_departures":0}'`. The response is HTTP 400 with `errors` `{"max_departures": "value must be at least 1"}`, and the helper exits `1`. The flow stays open.
+- **Out of range.** Run `V api --run <run-id> --label opt-max-zero POST /api/config/config_entries/options/flow/<flow_id> '{"max_departures":0}'`. The response is HTTP 400 with `errors` `{"max_departures": "value must be at least 1"}`, and the helper exits `1`. The flow stays open. Submit `{"max_departures":21}` with label `opt-max-21` for the upper bound. The error reads `value must be at most 20`.
 - **Save options.** Run `V api --run <run-id> --label opt-save-ret POST /api/config/config_entries/options/flow/<flow_id> '{"max_departures":2,"line_filter":"1"}'`. The response has `type` `create_entry`.
 - **Confirm effect.** Wait 8 seconds, then run `V api --run <run-id> --label opt-effect-ret GET /api/states`. The `sensor.ret_beurs_next_departure` `departures` list has at most 2 items and every item has `line` `1`.
 - **Confirm stored value.** Repeat Open Configure with label `opt-reopen-ret`. The defaults now read `2` and `1`.
-- **NS form.** Open Configure on the NS entry with label `opt-form-ns`. The form has `max_departures` and `monitor_disruptions`, and no `line_filter`.
+- **NS form.** Open Configure on the NS entry with label `opt-form-ns`. The form has `max_departures` and `monitor_disruptions` defaulting to `true`, and no `line_filter`.
 - **Disruptions off.** Submit `{"max_departures":5,"monitor_disruptions":false}` with label `opt-ns-disruptions-off`. After 8 seconds `GET /api/states` has no `binary_sensor.ns_rotterdam_centraal_disruptions`, while the departure sensors and the image keep live values.
+- **Disruptions on again.** Open Configure on the NS entry again. `monitor_disruptions` now defaults to `false`. Submit `{"max_departures":5,"monitor_disruptions":true}` with label `opt-ns-disruptions-on`. After 8 seconds `GET /api/states` has `binary_sensor.ns_rotterdam_centraal_disruptions` again.
 
 ## Gotchas
 
