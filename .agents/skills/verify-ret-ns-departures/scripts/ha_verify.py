@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import secrets
 import os
 import shutil
 import signal
@@ -207,7 +208,8 @@ def cmd_launch(args: argparse.Namespace) -> None:
             "client_id": CLIENT_ID,
             "name": "Verify",
             "username": "verify",
-            "password": "verify-only-local",
+            # Random and never stored: the instance is driven by token only.
+            "password": secrets.token_urlsafe(24),
             "language": "en",
         },
     )
