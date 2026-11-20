@@ -1,6 +1,7 @@
 """Tests for the NS Virtual Train API client."""
 from unittest.mock import AsyncMock, MagicMock
 
+from aiohttp import ClientResponseError
 import pytest
 from custom_components.ret_ns_departures import api_virtual_train
 from custom_components.ret_ns_departures.api_virtual_train import (
@@ -236,3 +237,55 @@ async def test_get_image_starts_with_the_route_that_worked(vt_client, mock_sessi
 
     await vt_client.async_get_image("502")
     assert mock_session.get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_get_image_encodes_path_parameters(vt_client, mock_session):
+    """Path segments are percent-encoded before sending subscription headers."""
+    response = mock_aiohttp_response()
+    response.content_type = "image/png"
+    set_body(response, b"\x89PNG")
+    attach_get_with_response(mock_session, response)
+
+    await vt_client.async_get_image("2834/../../admin", station="Rtd")
+    called_url = mock_session.get.call_args[0][0]
+    assert called_url == f"{NS_VIRTUAL_TRAIN_API_BASE_URL}/trein/image/2834%2F..%2F..%2Fadmin"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "http://cdn.ns.nl/train.png",
+        "https://localhost/train.png",
+        "https://127.0.0.1/train.png",
+        "https://169.254.169.254/latest/meta-data",
+        "https://user:pass@cdn.ns.nl/train.png",
+    ],
+)
+async def test_get_image_rejects_unsafe_json_image_urls(vt_client, mock_session, bad_url):
+    """Unsafe URLs in JSON payloads are not fetched and do not return partial results."""
+    json_response = mock_aiohttp_response(json_data={"afbeelding": bad_url})
+    json_response.content_type = "application/json"
+    attach_get_with_response(mock_session, json_response)
+
+    result = await vt_client.async_get_image("2834")
+
+    assert result is None
+    for call in mock_session.get.call_args_list:
+        assert call[0][0] != bad_url
+
+
+@pytest.mark.asyncio
+async def test_get_image_403_cools_down_across_different_trains(vt_client, mock_session):
+    """A 403 pauses Virtual Train requests even when the next departing train changes."""
+    denied = ClientResponseError(
+        request_info=MagicMock(), history=(), status=403, message="Forbidden"
+    )
+    mock_session.get.side_effect = denied
+
+    with pytest.raises(ClientResponseError):
+        await vt_client.async_get_image("2834", station="Rtd")
+
+    assert await vt_client.async_get_image("2836", station="Rtd") is None
+    assert mock_session.get.call_count == 1

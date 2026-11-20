@@ -177,3 +177,31 @@ async def test_async_get_disruptions_falls_back_to_reisinformatie(
     assert result[0]["id"] == "fb"
     assert mock_session.get.call_count == 2
     assert "/reisinformatie-api/api/v3/disruptions" in mock_session.get.call_args[0][0]
+
+    # A second poll goes straight to the fallback endpoint instead of repeating 403.
+    mock_session.get.side_effect = [success_cm]
+    second = await disruptions_client.async_get_disruptions(station_code="Rtd")
+    assert second[0]["id"] == "fb"
+    assert mock_session.get.call_count == 3
+
+
+def test_parse_disruptions_handles_json_null_collections(disruptions_client):
+    """Explicit JSON nulls for sections, timespans, and duration do not crash."""
+    raw = [
+        {
+            "id": "d2",
+            "type": "DISRUPTION",
+            "title": "Null fields",
+            "isActive": True,
+            "phase": None,
+            "impact": None,
+            "publicationSections": None,
+            "timespans": None,
+            "expectedDuration": None,
+            "period": None,
+        }
+    ]
+    parsed = disruptions_client._parse_disruptions(raw)
+    assert len(parsed) == 1
+    assert parsed[0]["stations"] == []
+    assert parsed[0]["period"] == ""

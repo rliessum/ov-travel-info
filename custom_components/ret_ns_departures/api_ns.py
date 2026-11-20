@@ -93,10 +93,14 @@ class NSAPIClient:
         """Parse NS API response into departure list."""
         departures = []
 
-        payload = data.get("payload", {})
-        departures_data = payload.get("departures", [])
+        payload = data.get("payload") if isinstance(data, dict) else None
+        departures_data = (
+            payload.get("departures") if isinstance(payload, dict) else None
+        ) or []
 
         for departure_data in departures_data[:max_results]:
+            if not isinstance(departure_data, dict):
+                continue
             # Extract departure information
             planned_datetime_str = departure_data.get("plannedDateTime")
             actual_datetime_str = departure_data.get("actualDateTime")
@@ -129,26 +133,31 @@ class NSAPIClient:
             # last route station for older/partial payloads.
             destination = departure_data.get("direction")
             if not destination:
-                route_stations = departure_data.get("routeStations", [])
-                destination = (
-                    route_stations[-1].get("mediumName", "Unknown")
-                    if route_stations
-                    else "Unknown"
+                route_stations = departure_data.get("routeStations") or []
+                last_station = (
+                    route_stations[-1]
+                    if route_stations and isinstance(route_stations[-1], dict)
+                    else {}
                 )
+                destination = last_station.get("mediumName") or "Unknown"
 
             # Check for cancellation
-            cancelled = departure_data.get("cancelled", False)
+            cancelled = bool(departure_data.get("cancelled", False))
+            product = departure_data.get("product")
+            if not isinstance(product, dict):
+                product = {}
 
             departure = {
                 "line": departure_data.get("trainCategory", ""),
-                "operator": departure_data.get("product", {}).get("operatorName", OPERATOR_NS),
+                "operator": product.get("operatorName", OPERATOR_NS),
                 "destination": destination,
-                "platform": departure_data.get("actualTrack") or departure_data.get("plannedTrack", ""),
+                "platform": departure_data.get("actualTrack")
+                or departure_data.get("plannedTrack", ""),
                 "delay": delay_minutes if not cancelled else None,
                 "scheduled_time": scheduled_dt,
                 "actual_time": actual_dt if not cancelled else None,
                 "train_type": departure_data.get("trainCategory", ""),
-                "trip_number": departure_data.get("product", {}).get("number", ""),
+                "trip_number": product.get("number", ""),
                 "cancelled": cancelled,
                 "departure_status": departure_data.get("departureStatus", ""),
             }
@@ -165,20 +174,16 @@ class NSAPIClient:
             station_code: The station code to validate
 
         Returns:
-            True if valid, False otherwise
+            True if valid, False if rejected as unknown (400/404).
+            Auth and network errors propagate so the caller can report them.
         """
         try:
             await self.async_get_departures(station_code, max_results=1)
             return True
         except ClientError as err:
-            # 404 or 400 means invalid station
             if getattr(err, "status", None) in (400, 404):
                 return False
-            # Other errors - assume station might be valid
-            return True
-        except Exception:
-            # Timeout or other errors - assume station might be valid
-            return True
+            raise
 
     def _headers(self) -> dict[str, str]:
         """Return subscription-key headers for NS APIs."""
@@ -466,4 +471,4 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
         sin(delta_lat / 2) ** 2
         + cos(radians(lat1)) * cos(radians(lat2)) * sin(delta_lng / 2) ** 2
     )
-    return 2 * _EARTH_RADIUS_KM * asin(sqrt(chord))
+    return 2 * _EARTH_RADIUS_KM * asin(sqrt(min(1.0, max(0.0, chord))))

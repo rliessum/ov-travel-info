@@ -7,7 +7,6 @@ from typing import Any
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
-    SensorStateClass,
 )
 from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
@@ -255,11 +254,11 @@ class NextDepartureSensor(DepartureSensorBase):
 
     @property
     def entity_picture(self) -> str | None:
-        """Show the Virtual Train image on the next-departure entity when public."""
+        """Use the next train image URL when Virtual Train returned a public URL."""
         if not self.coordinator.data:
             return None
         url = self.coordinator.data.get("train_image_url")
-        return url if isinstance(url, str) else None
+        return url if isinstance(url, str) and url.startswith("https://") else None
 
     @property
     def icon(self) -> str:
@@ -275,7 +274,6 @@ class TimeToNextDepartureSensor(DepartureSensorBase):
 
     _sensor_type = "time_to_next_departure"
     _attr_device_class = SensorDeviceClass.DURATION
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_translation_key = "time_to_next_departure"
 

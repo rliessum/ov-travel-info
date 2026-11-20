@@ -90,3 +90,46 @@ def test_extract_halt_metadata():
     assert extract_halt_name(HALT_HTML) == "Schiekade"
     assert extract_halt_lines(HALT_HTML) == ["8"]
     assert extract_dienstregeling_urls(HALT_HTML)["8"].endswith("tram-8.html")
+
+
+def test_parse_multiword_werkzaamheden_title():
+    html = """
+    <html><body>
+    <article class="article article--modal">
+      <h2>Door werkzaamheden aan de Maastunnel rijden buslijnen 44 en 70 om.</h2>
+      <p>Vervallen haltes bus 44:</p>
+      <p>- Hofplein</p>
+    </article>
+    </body></html>
+    """
+    notices = parse_diversion_articles(html)
+    assert len(notices) == 1
+    assert notices[0]["title"] == "Werkzaamheden aan de Maastunnel"
+
+
+def test_partial_word_stop_name_does_not_false_match():
+    """Short stop names like 'Hof' do not match 'Hofplein'."""
+    notices = parse_diversion_articles(HOFPLEIN_HTML)
+    assert (
+        match_stop_notice(
+            notices,
+            stop_name="Schie",
+            stop_slug="schie",
+            lines=["8"],
+        )["cancelled_stop"]
+        is False
+    )
+
+
+def test_cancelled_stop_for_other_line_does_not_match_filtered_line():
+    """A Tram 8 cancellation at Schiekade does not claim to explain Bus 70."""
+    notices = parse_diversion_articles(HOFPLEIN_HTML)
+    assert (
+        match_stop_notice(
+            notices,
+            stop_name="Schiekade",
+            stop_slug="schiekade",
+            lines=["70"],
+        )
+        is None
+    )

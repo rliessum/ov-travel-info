@@ -27,6 +27,7 @@ class NSDisruptionsAPIClient:
         self._api_key = api_key
         self._base_url = NS_DISRUPTIONS_BASE_URL
         self._tz = ZoneInfo(TIMEZONE)
+        self._use_fallback = False
 
     async def async_get_disruptions(
         self,
@@ -49,25 +50,26 @@ class NSDisruptionsAPIClient:
         if is_active:
             params["isActive"] = "true"
 
-        _LOGGER.debug("Fetching disruptions from %s", NS_DISRUPTIONS_API_BASE_URL)
-
-        try:
-            data = await self._async_get_json(NS_DISRUPTIONS_API_BASE_URL, params)
-        except ClientResponseError as err:
-            if err.status == 401:
-                raise
-            _LOGGER.info(
-                "Disruptions API v3 returned %s, falling back to Reisinformatie",
-                err.status,
-            )
-            data = await self._async_get_json(
-                f"{self._base_url}/disruptions", params
-            )
-        except (asyncio.TimeoutError, ClientError) as err:
-            _LOGGER.info("Disruptions API v3 error, falling back: %s", err)
-            data = await self._async_get_json(
-                f"{self._base_url}/disruptions", params
-            )
+        fallback_url = f"{self._base_url}/disruptions"
+        if self._use_fallback:
+            data = await self._async_get_json(fallback_url, params)
+        else:
+            _LOGGER.debug("Fetching disruptions from %s", NS_DISRUPTIONS_API_BASE_URL)
+            try:
+                data = await self._async_get_json(NS_DISRUPTIONS_API_BASE_URL, params)
+            except ClientResponseError as err:
+                if err.status == 401:
+                    raise
+                if err.status == 403:
+                    self._use_fallback = True
+                _LOGGER.info(
+                    "Disruptions API v3 returned %s, falling back to Reisinformatie",
+                    err.status,
+                )
+                data = await self._async_get_json(fallback_url, params)
+            except (asyncio.TimeoutError, ClientError) as err:
+                _LOGGER.info("Disruptions API v3 error, falling back: %s", err)
+                data = await self._async_get_json(fallback_url, params)
 
         items = _disruption_items(data)
         if items is None:
@@ -83,6 +85,8 @@ class NSDisruptionsAPIClient:
         disruptions = []
 
         for disruption_data in data:
+            if not isinstance(disruption_data, dict):
+                continue
             # Skip if not a disruption or calamity
             disruption_type = disruption_data.get("type")
             if not disruption_type:
@@ -120,19 +124,25 @@ class NSDisruptionsAPIClient:
                 end_dt = None
 
             # Extract phase and impact
-            phase = disruption_data.get("phase", {})
+            phase = disruption_data.get("phase")
             phase_label = phase.get("label", "") if isinstance(phase, dict) else ""
 
-            impact = disruption_data.get("impact", {})
+            impact = disruption_data.get("impact")
             impact_value = impact.get("value", 0) if isinstance(impact, dict) else 0
 
             # Extract affected stations from publication sections
             stations = []
-            publication_sections = disruption_data.get("publicationSections", [])
+            publication_sections = disruption_data.get("publicationSections") or []
             for section in publication_sections:
-                section_data = section.get("section", {})
-                section_stations = section_data.get("stations", [])
+                if not isinstance(section, dict):
+                    continue
+                section_data = section.get("section")
+                if not isinstance(section_data, dict):
+                    continue
+                section_stations = section_data.get("stations") or []
                 for station in section_stations:
+                    if not isinstance(station, dict):
+                        continue
                     station_name = station.get("name", "")
                     if station_name and station_name not in stations:
                         stations.append(station_name)
@@ -141,13 +151,13 @@ class NSDisruptionsAPIClient:
             cause = ""
             situation = ""
             extra_travel_time = ""
-            timespans = disruption_data.get("timespans", [])
-            if timespans:
+            timespans = disruption_data.get("timespans") or []
+            if timespans and isinstance(timespans[0], dict):
                 first_timespan = timespans[0]
-                cause_data = first_timespan.get("cause", {})
+                cause_data = first_timespan.get("cause")
                 if isinstance(cause_data, dict):
                     cause = cause_data.get("label", "")
-                situation_data = first_timespan.get("situation", {})
+                situation_data = first_timespan.get("situation")
                 if isinstance(situation_data, dict):
                     situation = situation_data.get("label", "")
                 extra = first_timespan.get("additionalTravelTime")
@@ -176,11 +186,11 @@ class NSDisruptionsAPIClient:
                 "situation": situation,
                 "additional_travel_time": extra_travel_time,
                 "description": disruption_data.get("description") or "",
-                "period": disruption_data.get("period", ""),
+                "period": disruption_data.get("period") or "",
             }
 
             # Add expected duration if available
-            expected_duration = disruption_data.get("expectedDuration", {})
+            expected_duration = disruption_data.get("expectedDuration")
             if isinstance(expected_duration, dict):
                 disruption["expected_duration"] = expected_duration.get("description", "")
 

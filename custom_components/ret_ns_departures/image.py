@@ -61,8 +61,10 @@ class NextTrainImageEntity(
 
     @property
     def available(self) -> bool:
-        """Return True when a train image was fetched."""
-        return bool(self.coordinator.data and self.coordinator.data.get("train_image"))
+        """Return True when the coordinator is healthy and a train image was fetched."""
+        return super().available and bool(
+            self.coordinator.data and self.coordinator.data.get("train_image")
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

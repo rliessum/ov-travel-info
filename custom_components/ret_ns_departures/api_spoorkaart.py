@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
+from urllib.parse import quote
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
@@ -49,10 +50,11 @@ class NSSpoorkaartClient:
         storing_id = str(disruption_id or "").strip()
         if not storing_id:
             return None
+
         if storing_id in self._cache:
             return self._cache[storing_id]
 
-        url = f"{NS_SPOORKAART_API_BASE_URL}/storingen/{storing_id}"
+        url = f"{NS_SPOORKAART_API_BASE_URL}/storingen/{quote(storing_id, safe='')}"
         _LOGGER.debug("Fetching Spoorkaart getStoring %s", storing_id)
 
         try:

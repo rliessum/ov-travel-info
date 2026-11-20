@@ -359,3 +359,23 @@ async def test_halt_page_is_parsed_once_per_poll(ret_client, mock_session):
 
     assert len(departures) == 1
     assert parser.call_count == 1
+
+
+@pytest.mark.asyncio
+@freeze_time("2024-11-16 12:00:15+01:00")
+async def test_departures_leaving_nu_or_zero_minutes_are_kept(ret_client, mock_session):
+    """Vehicles departing 'nu' or in '0' minutes are not dropped."""
+    html = _ret_page(
+        _ret_departure_row("Tram 8", "Nesselande", "11:58", minutes="nu"),
+        _ret_departure_row("Metro E", "Slinge", "12:00", minutes="0"),
+    )
+    attach_get_with_response(mock_session, mock_aiohttp_response(text=html))
+
+    departures = await ret_client.async_get_departures(
+        "beurs", max_results=5, line_filter=["8", "e"]
+    )
+
+    assert len(departures) == 2
+    by_line = {dep["line"]: dep for dep in departures}
+    assert by_line["8"]["delay"] == 2
+    assert by_line["E"]["delay"] == 0
