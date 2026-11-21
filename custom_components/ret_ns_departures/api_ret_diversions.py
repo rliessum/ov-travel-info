@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
@@ -26,7 +27,11 @@ _REPLACEMENT_HEADER_RE = re.compile(
     re.IGNORECASE,
 )
 _STOP_ITEM_RE = re.compile(r"^[-•]\s+(.+)")
-_WORKS_RE = re.compile(r"werkzaamheden\s+(\S+)", re.IGNORECASE)
+_WORKS_RE = re.compile(
+    r"werkzaamheden\s+(.+?)(?=\s+(?:rijden|rijdt|is|zijn|hebben|heeft|"
+    r"vervallen|vervalt|worden|wordt|van\s+\d|t/m|tot)\b|[.,;:]|$)",
+    re.IGNORECASE,
+)
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -55,19 +60,14 @@ def match_stop_notice(
     line_hits: list[dict[str, Any]] = []
 
     for notice in notices:
+        notice_lines = {line.upper() for line in (notice.get("lines") or [])}
+        wanted_upper = {line.upper() for line in wanted_lines}
+        line_match = bool(wanted_upper & notice_lines) if wanted_upper else False
         if _halt_is_cancelled(notice, stop_name, stop_slug):
-            cancelled_hits.append(notice)
-        elif wanted_lines and wanted_lines.intersection(notice.get("lines") or []):
+            if not wanted_upper or line_match or not notice_lines:
+                cancelled_hits.append(notice)
+        elif line_match:
             line_hits.append(notice)
-
-    if cancelled_hits and wanted_lines:
-        lined = [
-            notice
-            for notice in cancelled_hits
-            if wanted_lines.intersection(notice.get("lines") or [])
-        ]
-        if lined:
-            cancelled_hits = lined
 
     chosen = cancelled_hits or line_hits
     if not chosen:
@@ -303,9 +303,13 @@ def _names_match(stop_name: str, stop_slug: str, candidate: str) -> bool:
     cand = _norm(candidate)
     if not cand:
         return False
+    cand_padded = f" {cand} "
     for raw in (stop_name, stop_slug.replace("-", " ")):
         name = _norm(raw)
-        if name and (name == cand or name in cand or cand in name):
+        if not name:
+            continue
+        name_padded = f" {name} "
+        if name == cand or name_padded in cand_padded or cand_padded in name_padded:
             return True
     return False
 
@@ -319,9 +323,9 @@ def _source_url(lines: list[str], line_urls: dict[str, str] | None) -> str:
         href = (line_urls or {}).get(line)
         if not href:
             continue
-        if href.startswith("http"):
-            return href
-        return f"https://www.ret.nl{href}"
+        resolved = urljoin("https://www.ret.nl/", href)
+        if resolved.startswith("https://"):
+            return resolved
     if len(lines) == 1 and lines[0].isalpha():
         return f"{RET_DIENSTREGELING_BASE_URL}/metro-{lines[0].lower()}.html"
     return RET_DIVERSIONS_URL

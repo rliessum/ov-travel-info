@@ -193,3 +193,11 @@ def test_entity_ids_do_not_follow_the_displayed_name():
     assert (
         time_sensor.entity_id == "sensor.ns_rotterdam_centraal_time_to_next_departure"
     )
+
+
+def test_next_departure_entity_picture_requires_https():
+    next_sensor, time_sensor = _make_sensors([_departure(10)])
+    next_sensor.coordinator.data["train_image_url"] = "http://insecure.example/train.png"
+
+    assert next_sensor.entity_picture is None
+    assert time_sensor.state_class is None

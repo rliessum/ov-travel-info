@@ -488,3 +488,32 @@ async def test_coordinator_clamps_max_departures(
         await coord._async_update_data()
 
     assert fetch.call_args.kwargs["max_results"] == requested
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_filter", ["   ", " , , "])
+async def test_coordinator_ret_ignores_blank_line_filter(
+    hass, mock_session, raw_filter
+):
+    """Whitespace or comma-only line filters do not hide all departures."""
+    coord = _make_coordinator(
+        hass,
+        mock_session,
+        {
+            CONF_OPERATOR: STOP_TYPE_RET,
+            CONF_STOP_ID: "beurs",
+            CONF_LINE_FILTER: raw_filter,
+        },
+    )
+    fetch = AsyncMock(return_value=[])
+    with (
+        patch.object(coord.api_client, "async_get_departures", new=fetch),
+        patch.object(
+            coord.api_client,
+            "async_get_service_notice",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        await coord._async_update_data()
+
+    assert fetch.call_args.kwargs["line_filter"] is None

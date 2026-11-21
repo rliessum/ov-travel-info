@@ -95,9 +95,15 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if self.operator == STOP_TYPE_RET:
                 line_filter = self.config.get(CONF_LINE_FILTER)
                 # Convert comma-separated string to list if needed
-                if isinstance(line_filter, str) and line_filter:
-                    line_filter = [l.strip() for l in line_filter.split(",")]
-                elif not line_filter:
+                if isinstance(line_filter, str):
+                    line_filter = [
+                        line.strip() for line in line_filter.split(",") if line.strip()
+                    ] or None
+                elif isinstance(line_filter, list):
+                    line_filter = [
+                        str(line).strip() for line in line_filter if str(line).strip()
+                    ] or None
+                else:
                     line_filter = None
 
                 departures = await self.api_client.async_get_departures(
@@ -246,13 +252,19 @@ class DeparturesCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if disruption.get("id")
         }
         client.prune_cache(live_ids)
+        semaphore = asyncio.Semaphore(5)
 
         async def _fetch(storing_id: str) -> tuple[str, dict[str, Any] | None]:
-            try:
-                return storing_id, await client.async_get_storing(storing_id)
-            except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.debug("Spoorkaart getStoring error for %s: %s", storing_id, err)
+            if client.disabled:
                 return storing_id, None
+            async with semaphore:
+                if client.disabled:
+                    return storing_id, None
+                try:
+                    return storing_id, await client.async_get_storing(storing_id)
+                except Exception as err:  # pylint: disable=broad-except
+                    _LOGGER.debug("Spoorkaart getStoring error for %s: %s", storing_id, err)
+                    return storing_id, None
 
         results = await asyncio.gather(*(_fetch(storing_id) for storing_id in live_ids))
         geo_by_id = {storing_id: geo for storing_id, geo in results if geo}

@@ -91,7 +91,7 @@ Available options:
 
 ## Entities
 
-For each configured stop/station, the integration creates two departure sensors. NS entries can add a third entity when disruption monitoring is enabled:
+For each configured stop/station, the integration creates two departure sensors. NS entries also add a next-train image entity and an optional disruptions binary sensor; RET entries add a disruptions binary sensor for omleidingen when a halt board is empty:
 
 ### 1. Next Departure Sensor
 

@@ -70,8 +70,6 @@ departures:                  # Array of next departures
 
 **Icon**: `mdi:clock-outline`
 
-**State Class**: `measurement`
-
 **Attributes**: Same as Next Departure Sensor, minus the `departures` list
 
 ### 3. NS Disruptions (optional)
@@ -188,11 +186,12 @@ entities:
 ```yaml
 type: conditional
 conditions:
-  - entity: sensor.ret_beurs_metro_time_to_next_departure
+  - condition: state
+    entity: sensor.ret_beurs_metro_time_to_next_departure
     state_not: unavailable
-  - entity: sensor.ret_beurs_metro_time_to_next_departure
+  - condition: state
+    entity: sensor.ret_beurs_metro_time_to_next_departure
     state_not: unknown
-conditions:
   - condition: numeric_state
     entity: sensor.ret_beurs_metro_time_to_next_departure
     below: 10
@@ -346,10 +345,8 @@ template:
       - name: "Next Metro Info"
         state: >
           {% set entity = 'sensor.ret_beurs_metro_next_departure' %}
-          {% if states(entity) not in ['unknown', 'unavailable', 'Cancelled'] %}
+          {% if states(entity) not in ['unknown', 'unavailable'] %}
             Line {{ state_attr(entity, 'line') }} in {{ states('sensor.ret_beurs_metro_time_to_next_departure') }} min
-          {% elif states(entity) == 'Cancelled' %}
-            Cancelled
           {% else %}
             No info
           {% endif %}
@@ -391,16 +388,16 @@ template:
 
 ## Integration Status
 
-You can check the integration status:
+You can check the next scheduled/actual departure in an Entity Card:
 
-**Device Card**:
+**Entity Card**:
 ```yaml
 type: entity
 entity: sensor.ret_beurs_metro_next_departure
-attribute: last_update
+attribute: actual_time
 ```
 
-**Shows**: When data was last refreshed
+**Shows**: Expected departure timestamp of the next vehicle
 
 ## Tips for Best Display
 

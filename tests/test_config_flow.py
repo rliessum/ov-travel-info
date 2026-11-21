@@ -1,6 +1,7 @@
 """Tests for the config flow."""
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from aiohttp import ClientResponseError
 import pytest
 from homeassistant import config_entries, data_entry_flow
 from homeassistant.core import HomeAssistant
@@ -662,3 +663,105 @@ async def test_options_reject_max_departures_out_of_range(hass: HomeAssistant, v
         await hass.config_entries.options.async_configure(
             result["flow_id"], {"max_departures": value}
         )
+
+
+@pytest.mark.asyncio
+async def test_options_preserves_ret_line_filter_from_entry_data(hass: HomeAssistant):
+    """Opening options and changing max_departures keeps the initial RET line filter."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_OPERATOR: STOP_TYPE_RET,
+            CONF_STOP_ID: "beurs",
+            "line_filter": "2, 8",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"max_departures": 10}
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result["data"]["max_departures"] == 10
+    assert result["data"]["line_filter"] == "2, 8"
+
+
+@pytest.mark.asyncio
+async def test_options_preserves_ns_monitor_disruptions_from_entry_data(
+    hass: HomeAssistant,
+):
+    """Legacy NS entries storing monitor_disruptions in data keep it enabled in options."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_OPERATOR: STOP_TYPE_NS,
+            CONF_STATION_CODE: "RTD",
+            CONF_MONITOR_DISRUPTIONS: True,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"max_departures": 8}
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_MONITOR_DISRUPTIONS] is True
+
+
+@pytest.mark.asyncio
+async def test_reauth_rejects_whitespace_only_key(hass: HomeAssistant):
+    """Reauth rejects an empty key without calling the NS API."""
+    failing = _ns_entry(hass, "RTD", "Rotterdam Centraal", "revoked")
+    result = await failing.start_reauth_flow(hass)
+
+    with patch(
+        "custom_components.ret_ns_departures.config_flow.NSAPIClient.async_validate_api_key",
+    ) as mock_validate:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_NS_API_KEY: "   "}
+        )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["errors"][CONF_NS_API_KEY] == "api_key_required"
+    mock_validate.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_form_ns_select_auth_error_shows_invalid_auth(hass: HomeAssistant):
+    """A 401/403 while validating the chosen station reports invalid_auth."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_OPERATOR: STOP_TYPE_NS}
+    )
+
+    with (
+        patch(
+            "custom_components.ret_ns_departures.config_flow.NSAPIClient.async_find_stations",
+            return_value=[ROTTERDAM],
+        ),
+        patch(
+            "custom_components.ret_ns_departures.config_flow.NSAPIClient.async_validate_station",
+            side_effect=ClientResponseError(MagicMock(), (), status=401),
+        ),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_NS_API_KEY: "test_api_key",
+                CONF_LOCATION: {"latitude": 51.9244, "longitude": 4.4694},
+            },
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_STATION: "RTD"}
+        )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["errors"]["base"] == "invalid_auth"

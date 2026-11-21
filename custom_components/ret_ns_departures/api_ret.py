@@ -225,7 +225,7 @@ class RETAPIClient:
 
     async def async_get_diversions(self) -> list[dict[str, Any]]:
         """Fetch and cache RET omleidingen / verstoringen articles."""
-        now = datetime.now(self._tz).timestamp()
+        now = monotonic()
         if self._diversions_cache is not None:
             cached_at, notices = self._diversions_cache
             if now - cached_at < RET_DIVERSIONS_CACHE_SECONDS:
@@ -236,8 +236,8 @@ class RETAPIClient:
             async with self._session.get(RET_DIVERSIONS_URL) as response:
                 response.raise_for_status()
                 html = await response.text()
-        notices = parse_diversion_articles(html)
-        self._diversions_cache = (now, notices)
+        notices = await asyncio.to_thread(parse_diversion_articles, html)
+        self._diversions_cache = (monotonic(), notices)
         return notices
 
     def _candidate_slugs(self, slug: str) -> list[str]:
@@ -314,6 +314,12 @@ class RETAPIClient:
     ) -> list[dict[str, Any]]:
         """Extract departure information from a parsed halt page."""
         departures = []
+        now = datetime.now(self._tz)
+        wanted_lines = (
+            {item.casefold() for item in line_filter if item}
+            if line_filter
+            else None
+        )
 
         try:
             # Find all departure rows
@@ -339,7 +345,7 @@ class RETAPIClient:
                 line_number = line_match.group(1) if line_match else line_text
 
                 # Apply line filter if specified
-                if line_filter and line_number not in line_filter:
+                if wanted_lines and line_number.casefold() not in wanted_lines:
                     continue
 
                 # Extract direction
@@ -366,8 +372,6 @@ class RETAPIClient:
 
                 # Parse departure time
                 try:
-                    # Current date with departure time
-                    now = datetime.now(self._tz)
                     hour, minute = map(int, time_str.split(':'))
 
                     scheduled_dt = now.replace(
@@ -384,18 +388,27 @@ class RETAPIClient:
                     delay_minutes = 0
 
                     # If we have relative minutes, use that for actual time
-                    if minutes_str and minutes_str.lower() != 'nu':
-                        try:
-                            minutes_until = int(minutes_str)
-                            actual_dt = now + timedelta(minutes=minutes_until)
+                    if minutes_str:
+                        if minutes_str.lower() == 'nu':
+                            actual_dt = max(scheduled_dt, now)
                             delay_minutes = max(
                                 0,
                                 round(
                                     (actual_dt - scheduled_dt).total_seconds() / 60
                                 ),
                             )
-                        except ValueError:
-                            pass
+                        else:
+                            try:
+                                minutes_until = int(minutes_str)
+                                actual_dt = now + timedelta(minutes=minutes_until)
+                                delay_minutes = max(
+                                    0,
+                                    round(
+                                        (actual_dt - scheduled_dt).total_seconds() / 60
+                                    ),
+                                )
+                            except ValueError:
+                                pass
 
                 except (ValueError, AttributeError) as err:
                     _LOGGER.debug("Error parsing time '%s': %s", time_str, err)
@@ -437,9 +450,8 @@ class RETAPIClient:
         # Sort by actual departure time
         departures.sort(key=lambda x: x["actual_time"])
 
-        # Return only future departures, limited to max_results
-        now = datetime.now(self._tz)
-        future_departures = [d for d in departures if d["actual_time"] > now]
+        # Return departures leaving now or later, limited to max_results
+        future_departures = [d for d in departures if d["actual_time"] >= now]
 
         return future_departures[:max_results]
 

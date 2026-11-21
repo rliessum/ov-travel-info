@@ -168,3 +168,15 @@ async def test_async_get_storing_caches_result(spoorkaart_client, mock_session):
     assert mock_session.get.call_count == 1
     spoorkaart_client.prune_cache(set())
     assert spoorkaart_client._cache == {}
+
+
+@pytest.mark.asyncio
+async def test_async_get_storing_encodes_path_segment(spoorkaart_client, mock_session):
+    """Special characters in storing_id are percent-encoded instead of altering the path."""
+    response = mock_aiohttp_response(json_data={})
+    response.status = 404
+    attach_get_with_response(mock_session, response)
+
+    assert await spoorkaart_client.async_get_storing("../secret?x=1") is None
+    called_url = mock_session.get.call_args[0][0]
+    assert called_url == f"{NS_SPOORKAART_API_BASE_URL}/storingen/..%2Fsecret%3Fx%3D1"

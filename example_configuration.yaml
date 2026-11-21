@@ -16,7 +16,7 @@ template:
           {% if states(entity) not in ['unknown', 'unavailable'] %}
             Line {{ state_attr(entity, 'line') }} to {{ state_attr(entity, 'destination') }}
             in {{ states('sensor.ret_beurs_metro_time_to_next_departure') }} minutes
-            {% if state_attr(entity, 'delay') > 0 %}
+            {% if (state_attr(entity, 'delay') | int(0)) > 0 %}
               (+{{ state_attr(entity, 'delay') }} min delay)
             {% endif %}
           {% else %}
@@ -54,7 +54,7 @@ automation:
         entity_id: sensor.ret_beurs_metro_next_departure
     condition:
       - condition: template
-        value_template: "{{ state_attr('sensor.ret_beurs_metro_next_departure', 'delay') > 3 }}"
+        value_template: "{{ (state_attr('sensor.ret_beurs_metro_next_departure', 'delay') | int(0)) > 3 }}"
     action:
       - service: notify.mobile_app_your_phone
         data:

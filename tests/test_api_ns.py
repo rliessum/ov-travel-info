@@ -498,3 +498,41 @@ async def test_validate_api_key_accepts_ok(ns_client, mock_session):
     mock_session.get.return_value = cm
 
     assert await ns_client.async_validate_api_key() is True
+
+
+@pytest.mark.asyncio
+async def test_get_departures_handles_null_nested_fields(ns_client, mock_session):
+    """JSON null values in product or routeStations do not crash parsing."""
+    payload = {
+        "payload": {
+            "departures": [
+                {
+                    "plannedDateTime": "2024-11-16T10:30:00+01:00",
+                    "actualDateTime": None,
+                    "trainCategory": "IC",
+                    "direction": None,
+                    "routeStations": None,
+                    "product": None,
+                    "cancelled": False,
+                }
+            ]
+        }
+    }
+    attach_get_with_response(mock_session, mock_aiohttp_response(json_data=payload))
+
+    departures = await ns_client.async_get_departures("Rtd")
+    assert len(departures) == 1
+    assert departures[0]["destination"] == "Unknown"
+    assert departures[0]["operator"] == "NS"
+
+
+@pytest.mark.asyncio
+async def test_validate_station_propagates_auth_and_network_errors(
+    ns_client, mock_session
+):
+    """Auth and connection errors propagate instead of validating the station as True."""
+    mock_session.get.side_effect = ClientResponseError(
+        request_info=MagicMock(), history=(), status=401, message="Unauthorized"
+    )
+    with pytest.raises(ClientResponseError):
+        await ns_client.async_validate_station("Rtd")

@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
+from aiohttp import ClientResponseError
 
 from homeassistant import config_entries
 from homeassistant.core import callback
@@ -241,6 +242,12 @@ class RETNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             station_name,
                             user_input.get(CONF_MONITOR_DISRUPTIONS, True),
                         )
+                except ClientResponseError as err:
+                    if err.status in (401, 403):
+                        errors["base"] = "invalid_auth"
+                    else:
+                        _LOGGER.error("Error validating NS station: %s", err)
+                        errors["base"] = "cannot_connect"
                 except Exception as err:  # pylint: disable=broad-except
                     _LOGGER.error("Error validating NS station: %s", err)
                     errors["base"] = "cannot_connect"
@@ -303,27 +310,33 @@ class RETNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             api_key = user_input[CONF_NS_API_KEY].strip()
-            client = NSAPIClient(async_get_clientsession(self.hass), api_key)
-            key_status = await client.async_validate_api_key()
-            if key_status is False:
-                errors["base"] = "invalid_auth"
-            elif key_status is None:
-                errors["base"] = "cannot_connect"
+            if not api_key:
+                errors[CONF_NS_API_KEY] = "api_key_required"
             else:
-                old_key = entry.data.get(CONF_NS_API_KEY)
-                for other in self._async_current_entries():
-                    if (
-                        other.entry_id != entry.entry_id
-                        and other.data.get(CONF_OPERATOR) == STOP_TYPE_NS
-                        and other.data.get(CONF_NS_API_KEY) == old_key
-                    ):
-                        self.hass.config_entries.async_update_entry(
-                            other, data={**other.data, CONF_NS_API_KEY: api_key}
-                        )
-                        self.hass.config_entries.async_schedule_reload(other.entry_id)
-                return self.async_update_reload_and_abort(
-                    entry, data_updates={CONF_NS_API_KEY: api_key}
-                )
+                client = NSAPIClient(async_get_clientsession(self.hass), api_key)
+                key_status = await client.async_validate_api_key()
+                if key_status is False:
+                    errors["base"] = "invalid_auth"
+                elif key_status is None:
+                    errors["base"] = "cannot_connect"
+                else:
+                    old_key = entry.data.get(CONF_NS_API_KEY)
+                    if old_key:
+                        for other in self._async_current_entries():
+                            if (
+                                other.entry_id != entry.entry_id
+                                and other.data.get(CONF_OPERATOR) == STOP_TYPE_NS
+                                and other.data.get(CONF_NS_API_KEY) == old_key
+                            ):
+                                self.hass.config_entries.async_update_entry(
+                                    other, data={**other.data, CONF_NS_API_KEY: api_key}
+                                )
+                                self.hass.config_entries.async_schedule_reload(
+                                    other.entry_id
+                                )
+                    return self.async_update_reload_and_abort(
+                        entry, data_updates={CONF_NS_API_KEY: api_key}
+                    )
 
         return self.async_show_form(
             step_id="reauth_confirm",
@@ -380,19 +393,19 @@ class RETNSOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         operator = self.config_entry.data.get(CONF_OPERATOR)
+        raw_max = self.config_entry.options.get(
+            CONF_MAX_DEPARTURES,
+            self.config_entry.data.get(CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES),
+        )
+        try:
+            default_max = int(raw_max)
+        except (TypeError, ValueError):
+            default_max = DEFAULT_MAX_DEPARTURES
 
         options_schema = {
             vol.Optional(
                 CONF_MAX_DEPARTURES,
-                default=min(
-                    max(
-                        self.config_entry.options.get(
-                            CONF_MAX_DEPARTURES, DEFAULT_MAX_DEPARTURES
-                        ),
-                        1,
-                    ),
-                    MAX_DEPARTURES_LIMIT,
-                ),
+                default=min(max(default_max, 1), MAX_DEPARTURES_LIMIT),
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=MAX_DEPARTURES_LIMIT)),
         }
 
@@ -401,7 +414,10 @@ class RETNSOptionsFlow(config_entries.OptionsFlow):
             options_schema[
                 vol.Optional(
                     CONF_LINE_FILTER,
-                    default=self.config_entry.options.get(CONF_LINE_FILTER, ""),
+                    default=self.config_entry.options.get(
+                        CONF_LINE_FILTER,
+                        self.config_entry.data.get(CONF_LINE_FILTER, ""),
+                    ),
                 )
             ] = str
 
@@ -410,7 +426,10 @@ class RETNSOptionsFlow(config_entries.OptionsFlow):
             options_schema[
                 vol.Optional(
                     CONF_MONITOR_DISRUPTIONS,
-                    default=self.config_entry.options.get(CONF_MONITOR_DISRUPTIONS, False),
+                    default=self.config_entry.options.get(
+                        CONF_MONITOR_DISRUPTIONS,
+                        self.config_entry.data.get(CONF_MONITOR_DISRUPTIONS, False),
+                    ),
                 )
             ] = bool
 
